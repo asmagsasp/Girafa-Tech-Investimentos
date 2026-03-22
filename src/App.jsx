@@ -839,7 +839,7 @@ const AuthView = ({ onNotify }) => {
       
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass-card w-full max-w-md p-10 relative z-10">
         <div className="text-center mb-10">
-          <img src="/logo.png" className="w-20 h-20 mx-auto rounded-3xl mb-6 shadow-2xl" />
+          <img src="/logo.png" className="w-20 h-20 md:w-32 md:h-32 mx-auto rounded-3xl mb-6 shadow-2xl" />
           <h2 className="outfit text-3xl font-bold gradient-text">Girafa Tech</h2>
           <p className="text-muted text-sm mt-2">{isLogin ? 'Bem-vindo de volta à elite' : 'Comece sua jornada hoje'}</p>
         </div>
