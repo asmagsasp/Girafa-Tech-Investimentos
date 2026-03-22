@@ -854,7 +854,6 @@ const AuthView = ({ onNotify }) => {
     if (!cleanEmail) return onNotify('Digite seu e-mail para recuperar a senha!', 'error');
     setLoading(true);
     try {
-      console.log('Tentando recuperar senha para:', cleanEmail);
       const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
         redirectTo: window.location.origin
       });
@@ -862,12 +861,19 @@ const AuthView = ({ onNotify }) => {
       onNotify('E-mail de recuperação de senha enviado!');
       alert('SUCESSO: E-mail de recuperação enviado para ' + cleanEmail);
     } catch (err) {
-      console.error('RECUPERAÇÃO ERRO:', err);
       onNotify('Erro ao solicitar recuperação: ' + err.message, 'error');
-      alert('ERRO NA RECUPERAÇÃO: ' + err.message);
+      alert('ERRO NA RECUPERAÇÃO: ' + err.message + '\n\nTente recuperar via WhatsApp se o erro de limite persistir.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleForgotPasswordWhatsApp = () => {
+    const cleanEmail = email.trim();
+    if (!cleanEmail) return onNotify('Digite seu e-mail para recuperar!', 'error');
+    const text = `🔑 *RECUPERAÇÃO DE SENHA* 🔑\n\nOlá Suporte Girafa Tech! Eu esqueci minha senha e preciso de ajuda para acessar minha conta.\n\n📧 *E-mail:* ${cleanEmail}`;
+    const url = `https://wa.me/551934585300?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
   };
 
   const handleSubmit = async (e) => {
@@ -972,13 +978,20 @@ const AuthView = ({ onNotify }) => {
           </div>
           
           {isLogin && (
-            <div className="flex justify-end pr-1">
+            <div className="flex flex-col gap-2 px-1">
               <button 
                 type="button" 
                 onClick={handleForgotPassword} 
-                className="text-[10px] text-amber-500/80 hover:text-amber-500 uppercase tracking-tighter cursor-pointer border-none bg-transparent"
+                className="text-[10px] text-amber-500/80 hover:text-amber-500 uppercase tracking-tighter cursor-pointer border-none bg-transparent text-right"
               >
-                Esqueceu sua senha?
+                Esqueceu sua senha? (E-mail)
+              </button>
+              <button 
+                type="button" 
+                onClick={handleForgotPasswordWhatsApp} 
+                className="text-[10px] text-amber-500/80 hover:text-amber-500 uppercase tracking-tighter cursor-pointer border-none bg-transparent text-right"
+              >
+                🔒 Recuperar via WhatsApp
               </button>
             </div>
           )}
