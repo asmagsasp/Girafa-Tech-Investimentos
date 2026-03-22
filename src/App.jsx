@@ -905,8 +905,9 @@ const AuthView = ({ onNotify }) => {
     console.log('Redirecionamento:', window.location.origin);
 
     try {
-      // Chama a Edge Function que gerará o link secreto e enviará o WhatsApp
       console.log('Chamando Edge Function: send-recovery-whatsapp...');
+      alert('🦒 INICIANDO RECUPERAÇÃO AUTOMÁTICA...\n\nAguarde o Zap chegar!');
+      
       const { data, error } = await supabase.functions.invoke('send-recovery-whatsapp', {
         body: { email: cleanEmail }
       });
@@ -1032,20 +1033,21 @@ const AuthView = ({ onNotify }) => {
           </div>
           
           {isLogin && (
-            <div className="flex flex-col gap-2 px-1">
+            <div className="flex flex-col gap-3 px-1 mt-2">
               <button 
                 type="button" 
                 onClick={handleForgotPassword} 
-                className="text-[10px] text-amber-500/80 hover:text-amber-500 uppercase tracking-tighter cursor-pointer border-none bg-transparent text-right"
+                className="text-xs text-amber-500/80 hover:text-amber-500 uppercase tracking-tighter cursor-pointer border-none bg-transparent text-right font-bold"
               >
-                Esqueceu sua senha? (E-mail)
+                Esqueci a senha (receber por E-mail)
               </button>
+              
               <button 
-                type="button" 
-                onClick={handleForgotPasswordWhatsApp} 
-                className="text-[10px] text-amber-500/80 hover:text-amber-500 uppercase tracking-tighter cursor-pointer border-none bg-transparent text-right"
+                type="button"
+                onClick={handleForgotPasswordWhatsApp}
+                className="w-full py-3 rounded-xl bg-amber-500 text-black text-xs font-bold flex items-center justify-center gap-2 hover:scale-[1.02] transition-all shadow-[0_0_15px_rgba(251,191,36,0.2)]"
               >
-                🔒 Recuperar via WhatsApp
+                🔐 RECUPERAR POR WHATSAPP (INSTANTÂNEO)
               </button>
             </div>
           )}
@@ -1068,13 +1070,14 @@ const AuthView = ({ onNotify }) => {
           </div>
         )}
 
-        <div className="mt-4">
+        <div className="mt-8 pt-6 border-t border-white/5">
+          <p className="text-[10px] text-muted text-center mb-3 uppercase tracking-widest">Problemas técnicos?</p>
           <button 
             type="button"
             onClick={handleSupportWhatsApp}
-            className="w-full py-4 rounded-xl bg-[#25D366] text-black text-sm font-bold flex items-center justify-center gap-2 hover:scale-[1.02] transition-all shadow-[0_0_20px_rgba(37,211,102,0.3)]"
+            className="w-full py-3 rounded-xl bg-white/5 text-muted text-[10px] font-bold flex items-center justify-center gap-2 hover:bg-white/10 transition-all border border-white/10"
           >
-            💬 Chamar Suporte no WhatsApp
+            💬 CONTATO MANUAL COM SUPORTE
           </button>
         </div>
 
