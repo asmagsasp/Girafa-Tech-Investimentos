@@ -877,6 +877,12 @@ const AuthView = ({ onNotify }) => {
     }
   };
 
+  const handleSupportWhatsApp = () => {
+    const text = `Olá! Preciso de ajuda para ativar minha conta na Girafa Tech (E-mail: ${email || 'não informado'})`;
+    const url = `https://wa.me/551934585300?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-black relative overflow-hidden">
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-amber-500/10 rounded-full blur-[120px]" />
@@ -938,6 +944,16 @@ const AuthView = ({ onNotify }) => {
             </button>
           </div>
         )}
+
+        <div className="mt-4">
+          <button 
+            type="button"
+            onClick={handleSupportWhatsApp}
+            className="w-full py-4 rounded-xl border border-green-500/30 bg-green-500/10 text-green-400 text-sm font-bold flex items-center justify-center gap-2 hover:bg-green-500/20 transition-all"
+          >
+            💬 Chamar Suporte no WhatsApp
+          </button>
+        </div>
 
         <p className="text-center mt-8 text-sm text-muted">
           {isLogin ? 'Novo por aqui?' : 'Já tem uma conta?'}
