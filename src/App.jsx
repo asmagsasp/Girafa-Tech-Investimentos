@@ -150,15 +150,16 @@ const App = () => {
 
     const { error } = await supabase
       .from('profiles')
-      .update(updates)
-      .eq('id', user.id);
+      .upsert(updates, { onConflict: 'id' });
     
     if (error) {
-      console.error('Erro ao salvar no Supabase:', error);
+      console.error('CRITICAL PROFILE ERROR:', error);
+      alert('ERRO AO SALVAR: ' + error.message);
       showNotification('Erro ao atualizar perfil.', 'error');
     } else {
       setProfile({ ...profile, ...updates });
       showNotification('Perfil atualizado com sucesso!');
+      alert('Perfil Salvo com Sucesso na Nuvem!');
       setModalType(null);
     }
   };
