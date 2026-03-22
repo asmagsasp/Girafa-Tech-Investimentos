@@ -116,6 +116,32 @@ input:focus {
   z-index: 10;
 }
 
+@media (max-width: 768px) {
+  .sidebar {
+    position: relative;
+    width: 100%;
+    height: auto;
+    padding: 20px;
+    border-right: none;
+    border-bottom: 1px solid var(--glass-border);
+  }
+  .main-content {
+    margin-left: 0;
+    padding: 20px;
+  }
+  .grid-cards {
+    grid-template-columns: 1fr;
+  }
+  header {
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center;
+  }
+  .stat-value {
+    font-size: 1.5rem;
+  }
+}
+
 /* Utility Classes */
 .flex { display: flex; }
 .flex-col { flex-direction: column; }
