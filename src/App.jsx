@@ -413,9 +413,14 @@ const App = () => {
           </button>
           
           {isAdmin && (
-            <button onClick={() => setActiveTab('investments')} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'investments' ? 'active' : ''}`}>
-              <PlusCircle size={20} /> Criar Investimento
-            </button>
+            <>
+              <button onClick={() => setActiveTab('investments')} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'investments' ? 'active' : ''}`}>
+                <PlusCircle size={20} /> Criar Investimento
+              </button>
+              <button onClick={() => setActiveTab('girafa_bank')} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'girafa_bank' ? 'active' : ''}`}>
+                <Landmark size={20} /> Girafa Bank
+              </button>
+            </>
           )}
 
           <button onClick={() => setActiveTab('explore')} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'explore' ? 'active' : ''}`}>
@@ -609,41 +614,87 @@ const App = () => {
           )}
 
           {activeTab === 'reports' && (
-             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
-                <div className="glass-card p-8">
-                  <h3 className="outfit text-2xl mb-8">Relatório Consolidado (Cloud)</h3>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="border-b border-white/10 text-muted text-sm uppercase">
-                          <th className="py-4 px-4 font-medium">Aplicação</th>
-                          <th className="py-4 px-4 font-medium">Resgate</th>
-                          <th className="py-4 px-4 font-medium">Investido</th>
-                          <th className="py-4 px-4 font-medium">Rendimento</th>
-                          <th className="py-4 px-4 font-medium">Total</th>
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+              <div className="glass-card p-8">
+                <h3 className="outfit text-2xl mb-8">Relatório Consolidado (Cloud)</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-white/10 text-muted text-sm uppercase">
+                        <th className="py-4 px-4 font-medium">Data</th>
+                        <th className="py-4 px-4 font-medium">Tipo</th>
+                        <th className="py-4 px-4 font-medium">Valor</th>
+                        <th className="py-4 px-4 font-medium">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {myInvestments.length === 0 ? (
+                        <tr><td colSpan="4" className="py-8 text-center text-muted">Nenhum investimento encontrado.</td></tr>
+                      ) : myInvestments.map(inv => (
+                        <tr key={inv.active_id} className="border-b border-white/5">
+                          <td className="py-4 px-4">{new Date(inv.invested_at).toLocaleDateString()}</td>
+                          <td className="py-4 px-4">Investimento</td>
+                          <td className="py-4 px-4 font-bold text-amber-500">R$ {Number(inv.invested_amount).toFixed(2)}</td>
+                          <td className="py-4 px-4">
+                            <span className="px-2 py-1 rounded-full bg-green-500/10 text-green-500 text-[10px] uppercase font-bold">{inv.status}</span>
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {myInvestments.map(inv => (
-                          <tr key={inv.active_id} className="border-b border-white/5">
-                            <td className="py-4 px-4">{new Date(inv.invested_at).toLocaleDateString()}</td>
-                            <td className="py-4 px-4">
-                              {(() => {
-                                const d = new Date(inv.invested_at);
-                                d.setDate(d.getDate() + inv.validity);
-                                return d.toLocaleDateString();
-                              })()}
-                            </td>
-                            <td className="py-4 px-4">R$ {inv.invested_amount.toLocaleString()}</td>
-                            <td className="py-4 px-4 text-green-400">+{inv.yield_percent}%</td>
-                            <td className="py-4 px-4 font-bold">R$ {inv.final_amount.toLocaleString()}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-             </motion.div>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'girafa_bank' && isAdmin && (
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-8">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+                <div>
+                  <h3 className="outfit text-3xl font-bold mb-2">Girafa Bank <span className="text-amber-500 text-lg font-normal">| Empréstimo Fácil</span></h3>
+                  <p className="text-muted">Acesso exclusivo à liquidez administrativa com taxas competitivas.</p>
+                </div>
+                <div className="text-right glass-card px-8 py-5 border-amber-500/20 shadow-[0_0_30px_rgba(251,191,36,0.1)] w-full md:w-auto">
+                  <span className="stat-label block mb-1">Saldo Total Girafa Bank</span>
+                  <span className="text-4xl font-bold text-amber-500 outfit">R$ {profile?.balance?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[500, 1000, 1500, 2000, 2500].map((val) => {
+                  const total = val * Math.pow(1.05, 5);
+                  const parcel = (total / 5).toFixed(2);
+                  return (
+                    <div key={val} className="glass-card p-6 border-amber-500/10 hover:border-amber-500/40 relative overflow-hidden group transition-all">
+                      <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-20 transition-opacity">
+                        <Landmark size={80} className="text-amber-500" />
+                      </div>
+                      <h4 className="text-muted uppercase text-[10px] tracking-widest mb-2 font-bold opacity-70">Crédito Disponível</h4>
+                      <div className="text-3xl font-bold mb-6 outfit">R$ {val.toLocaleString()}</div>
+                      
+                      <div className="space-y-3 mb-8 bg-white/5 p-4 rounded-xl border border-white/5">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted">Taxa de Juros</span>
+                          <span className="text-green-400 font-bold">5% am (Compostos)</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted">Parcelamento</span>
+                          <span className="font-bold">5x Meses</span>
+                        </div>
+                        <div className="flex justify-between text-lg mt-3 pt-3 border-t border-amber-500/20">
+                          <span className="font-semibold outfit text-sm">Valor Parcela</span>
+                          <span className="text-amber-400 font-bold">R$ {parcel}</span>
+                        </div>
+                      </div>
+
+                      <button className="primary-btn w-full justify-center py-3 font-bold group-hover:shadow-[0_0_15px_rgba(251,191,36,0.3)] transition-all">
+                        Pegar emprestado com juros
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
           )}
         </AnimatePresence>
       </main>
