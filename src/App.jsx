@@ -148,9 +148,15 @@ const App = () => {
       updated_at: new Date(),
     };
 
-    const { error } = await supabase.from('profiles').upsert(updates);
-    if (error) showNotification('Erro ao atualizar perfil.', 'error');
-    else {
+    const { error } = await supabase
+      .from('profiles')
+      .update(updates)
+      .eq('id', user.id);
+    
+    if (error) {
+      console.error('Erro ao salvar no Supabase:', error);
+      showNotification('Erro ao atualizar perfil.', 'error');
+    } else {
       setProfile({ ...profile, ...updates });
       showNotification('Perfil atualizado com sucesso!');
       setModalType(null);
