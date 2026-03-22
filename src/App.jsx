@@ -798,6 +798,22 @@ const AuthView = ({ onNotify }) => {
     }
   };
 
+  const handleForgotPassword = async () => {
+    if (!email) return onNotify('Digite seu e-mail para recuperar a senha!', 'error');
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin
+      });
+      if (error) throw error;
+      onNotify('E-mail de recuperação de senha enviado!');
+    } catch (err) {
+      onNotify('Erro ao solicitar recuperação: ' + err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     console.log('FORM SUBMITTED', { isLogin, email, phone, fullName, passwordLength: password.length });
@@ -892,6 +908,19 @@ const AuthView = ({ onNotify }) => {
             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={18} />
             <input type="password" placeholder="Senha" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full pl-12" required />
           </div>
+          
+          {isLogin && (
+            <div className="flex justify-end pr-1">
+              <button 
+                type="button" 
+                onClick={handleForgotPassword} 
+                className="text-[10px] text-amber-500/80 hover:text-amber-500 uppercase tracking-tighter cursor-pointer border-none bg-transparent"
+              >
+                Esqueceu sua senha?
+              </button>
+            </div>
+          )}
+
           <button type="submit" disabled={loading} className="primary-btn w-full justify-center py-4 text-lg">
             {loading ? <Loader2 className="animate-spin" /> : (isLogin ? 'Entrar' : 'Criar Conta')}
           </button>
