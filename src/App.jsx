@@ -850,16 +850,21 @@ const AuthView = ({ onNotify }) => {
   };
 
   const handleForgotPassword = async () => {
-    if (!email) return onNotify('Digite seu e-mail para recuperar a senha!', 'error');
+    const cleanEmail = email.trim();
+    if (!cleanEmail) return onNotify('Digite seu e-mail para recuperar a senha!', 'error');
     setLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      console.log('Tentando recuperar senha para:', cleanEmail);
+      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
         redirectTo: window.location.origin
       });
       if (error) throw error;
       onNotify('E-mail de recuperação de senha enviado!');
+      alert('SUCESSO: E-mail de recuperação enviado para ' + cleanEmail);
     } catch (err) {
+      console.error('RECUPERAÇÃO ERRO:', err);
       onNotify('Erro ao solicitar recuperação: ' + err.message, 'error');
+      alert('ERRO NA RECUPERAÇÃO: ' + err.message);
     } finally {
       setLoading(false);
     }
