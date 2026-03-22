@@ -398,7 +398,7 @@ const App = () => {
       {/* Sidebar */}
       <nav className="sidebar">
         <div className="flex items-center gap-3 mb-10 px-2">
-          <img src="/logo.png" alt="Girafa Tech" className="w-12 h-12 rounded-xl object-cover border border-amber-500/30" />
+          <img src="/logo.png" alt="Girafa Tech" className="w-12 h-12 rounded-xl object-contain border border-amber-500/30" />
           <h1 className="text-xl font-bold gradient-text outfit leading-tight">GIRAFA TECH<br /><span className="text-xs text-muted font-normal tracking-widest uppercase">Investimentos</span></h1>
         </div>
 
@@ -863,7 +863,7 @@ const AuthView = ({ onNotify }) => {
       
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass-card w-full max-w-md p-10 relative z-10">
         <div className="text-center mb-10">
-          <img src="/logo.png" className="w-20 h-20 md:w-32 md:h-32 mx-auto rounded-3xl mb-6 shadow-2xl" />
+          <img src="/logo.png" className="w-20 h-20 md:w-32 md:h-32 mx-auto rounded-3xl mb-6 shadow-2xl object-contain" />
           <h2 className="outfit text-3xl font-bold gradient-text">Girafa Tech</h2>
           <p className="text-muted text-sm mt-2">{isLogin ? 'Bem-vindo de volta à elite' : 'Comece sua jornada hoje'}</p>
         </div>
