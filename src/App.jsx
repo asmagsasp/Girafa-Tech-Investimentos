@@ -143,9 +143,8 @@ const App = () => {
     const formData = new FormData(e.target);
     const updates = {
       id: user.id,
-      full_name: formData.get('full_name'),
-      pix_key: formData.get('pix_key'),
-      updated_at: new Date().toISOString(),
+      full_name: String(formData.get('full_name')),
+      pix_key: String(formData.get('pix_key'))
     };
 
     const { error } = await supabase
