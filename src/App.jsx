@@ -426,11 +426,12 @@ const App = () => {
               <button onClick={() => setActiveTab('investments')} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'investments' ? 'active' : ''}`}>
                 <PlusCircle size={20} /> Criar Investimento
               </button>
-              <button onClick={() => setActiveTab('girafa_bank')} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'girafa_bank' ? 'active' : ''}`}>
-                <Landmark size={20} /> Girafa Bank
-              </button>
             </>
           )}
+
+          <button onClick={() => setActiveTab('girafa_bank')} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'girafa_bank' ? 'active' : ''}`}>
+            <Landmark size={20} /> Girafa Bank
+          </button>
 
           <button onClick={() => setActiveTab('explore')} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'explore' ? 'active' : ''}`}>
             <TrendingUp size={20} /> Oportunidades
@@ -656,7 +657,7 @@ const App = () => {
             </motion.div>
           )}
 
-          {activeTab === 'girafa_bank' && isAdmin && (
+          {activeTab === 'girafa_bank' && (
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-8">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
                 <div>
