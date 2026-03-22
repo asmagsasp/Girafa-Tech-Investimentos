@@ -364,19 +364,19 @@ const App = () => {
     </div>
   );
 
-  // Check for missing config
-  if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+  if (!supabase || !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black p-6">
-        <div className="glass-card max-w-lg p-10 text-center border-red-500/50">
-          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-6" />
-          <h2 className="outfit text-2xl mb-4">Configuração Pendente</h2>
-          <p className="text-muted mb-6">As credenciais do Supabase não foram encontradas. Certifique-se de configurar o arquivo <strong>.env</strong> em seu projeto.</p>
-          <div className="bg-white/5 p-4 rounded-xl text-left border border-white/10">
-            <code className="text-xs text-amber-400">
-              VITE_SUPABASE_URL=seu_url_aqui<br />
-              VITE_SUPABASE_ANON_KEY=sua_key_aqui
-            </code>
+        <div className="max-w-md w-full glass-card p-10 text-center space-y-6 border-red-500/20">
+          <div className="bg-red-500/10 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <LogOut size={40} className="text-red-500" />
+          </div>
+          <h1 className="text-3xl font-bold outfit text-white">Configuração Pendente</h1>
+          <p className="text-muted leading-relaxed">As credenciais do <strong>Supabase</strong> não foram encontradas no ambiente de execução.</p>
+          <div className="text-left bg-white/5 p-4 rounded-xl text-xs space-y-2 opacity-80">
+            <p>1. Acesse <strong>Settings &gt; Environment Variables</strong> no seu Vercel.</p>
+            <p>2. Adicione <code>VITE_SUPABASE_URL</code> e <code>VITE_SUPABASE_ANON_KEY</code>.</p>
+            <p>3. Faça um <strong>Redeploy</strong> para aplicar as mudanças.</p>
           </div>
         </div>
       </div>
