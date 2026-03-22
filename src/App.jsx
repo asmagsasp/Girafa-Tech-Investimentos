@@ -949,7 +949,7 @@ const AuthView = ({ onNotify }) => {
           <button 
             type="button"
             onClick={handleSupportWhatsApp}
-            className="w-full py-4 rounded-xl border border-green-500/30 bg-green-500/10 text-green-400 text-sm font-bold flex items-center justify-center gap-2 hover:bg-green-500/20 transition-all"
+            className="w-full py-4 rounded-xl bg-[#25D366] text-black text-sm font-bold flex items-center justify-center gap-2 hover:scale-[1.02] transition-all shadow-[0_0_20px_rgba(37,211,102,0.3)]"
           >
             💬 Chamar Suporte no WhatsApp
           </button>
