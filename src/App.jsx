@@ -973,11 +973,22 @@ const AuthView = ({ onNotify }) => {
           }
         });
         if (error) {
-          console.error('Erro de Cadastro:', error);
+          console.error('ERRO DE CADASTRO:', error);
+          const msg = error.message.toLowerCase();
+          if (msg.includes('rate limit')) {
+            alert('🚨 SUPABASE: Limite de tentativas atingido. Aguarde 1 hora ou troque o e-mail de teste.');
+          } else if (msg.includes('already registered')) {
+            alert('⚠️ AVISO: Este e-mail já está cadastrado. Tente fazer login!');
+          } else if (error.status === 401) {
+            alert('🔑 ERRO CRÍTICO (401): Suas chaves de ambiente na Vercel são inválidas. Verifique o VITE_SUPABASE_ANON_KEY!');
+          } else {
+            alert('ERRO NO CADASTRO: ' + error.message);
+          }
           throw error;
         }
         console.log('Cadastro OK!', data);
         onNotify('Verifique seu e-mail para confirmar o cadastro!');
+        alert('SUCESSO! Enviamos um link de ativação para: ' + email);
       }
     } catch (err) {
       console.error('CRITICAL AUTH ERROR:', err);
