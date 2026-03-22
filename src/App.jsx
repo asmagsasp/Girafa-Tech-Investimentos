@@ -154,12 +154,10 @@ const App = () => {
     
     if (error) {
       console.error('CRITICAL PROFILE ERROR:', error);
-      alert('ERRO AO SALVAR: ' + error.message + '\nDados: ' + JSON.stringify(updates));
       showNotification('Erro ao atualizar perfil.', 'error');
     } else {
       setProfile({ ...profile, ...updates });
       showNotification('Perfil atualizado com sucesso!');
-      alert('Perfil Salvo com Sucesso!');
       setModalType(null);
     }
   };
