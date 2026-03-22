@@ -383,6 +383,8 @@ const App = () => {
     );
   }
 
+  if (!session) return <AuthView onNotify={showNotification} />;
+
   const calculateAccruedEarnings = (inv) => {
     const progress = Number(calculateProgress(inv.invested_at, inv.validity)) / 100;
     const totalPotentialProfit = Number(inv.final_amount) - Number(inv.invested_amount);
