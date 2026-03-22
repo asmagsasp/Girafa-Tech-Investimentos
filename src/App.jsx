@@ -458,7 +458,7 @@ const App = () => {
       <main className="main-content">
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 animate-in">
           <div>
-            <h2 className="text-3xl font-bold outfit mb-1">Olá, {profile?.full_name?.split(' ')[0] || 'Investidor'}</h2>
+            <h2 className="text-3xl font-bold outfit mb-1 text-white">Olá Investidor, {profile?.full_name?.split(' ')[0] || ''}</h2>
             <p className="text-muted">Gestão inteligente do seu capital em nuvem.</p>
           </div>
           <div className="flex gap-4 w-full md:w-auto overflow-x-auto pb-4 md:pb-0">
@@ -1108,6 +1108,11 @@ const AuthView = ({ onNotify }) => {
             {isLogin ? 'Cadastre-se' : 'Faça Login'}
           </button>
         </p>
+
+        {/* Debug Info para o Abel verificar a Chave */}
+        <div className="mt-10 pt-4 border-t border-white/5 text-[8px] text-muted/30 font-mono text-center uppercase tracking-widest">
+          Debug: {import.meta.env.VITE_SUPABASE_ANON_KEY?.substring(0, 5)}...{import.meta.env.VITE_SUPABASE_ANON_KEY?.slice(-4)} | v1.0.8
+        </div>
       </motion.div>
     </div>
   );
