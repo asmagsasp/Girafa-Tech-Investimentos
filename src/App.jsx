@@ -24,7 +24,8 @@ import {
   Mail,
   Phone,
   Lock,
-  Loader2
+  Loader2,
+  Landmark
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from './lib/supabase';
