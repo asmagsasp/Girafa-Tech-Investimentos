@@ -872,11 +872,12 @@ const AuthView = ({ onNotify }) => {
         const cleanPhone = prof.phone_number.replace(/\D/g, '');
         const msg = `🦒 *GIRAFA TECH - RECUPERAÇÃO* 🦒\n\nOlá! Recebemos um pedido de recuperação de senha para sua conta.\n\nE-mail: *${cleanEmail}*\n\nPor favor, verifique seu e-mail agora para clicar no link oficial de redefinição e voltar a lucrar! 🚀`;
         
-        fetch('http://localhost:8080/message/sendText/Investimentos', {
+        fetch('https://uncapitalized-hiedi-supermodest.ngrok-free.dev/message/sendText/MeuBot', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'apikey': '47b2030633301eea8876d1d08cdb6ef23b49a171770f240b25ec0be1be53d77d'
+            'apikey': '47b2030633301eea8876d1d08cdb6ef23b49a171770f240b25ec0be1be53d77d',
+            'ngrok-skip-browser-warning': 'true'
           },
           body: JSON.stringify({
             number: cleanPhone,
@@ -994,7 +995,7 @@ const AuthView = ({ onNotify }) => {
       
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass-card w-full max-w-md p-10 relative z-10">
         <div className="text-center mb-10">
-          <img src="/logo.png" className="w-20 h-20 md:w-32 md:h-32 mx-auto rounded-3xl mb-6 shadow-2xl object-contain" />
+          <img src="/logo.png" className="w-24 h-24 md:w-32 md:h-32 mx-auto mb-6 shadow-2xl object-contain p-2" />
           <h2 className="outfit text-3xl font-bold gradient-text">Girafa Tech</h2>
           <p className="text-muted text-sm mt-2">{isLogin ? 'Bem-vindo de volta à elite' : 'Comece sua jornada hoje'}</p>
         </div>
