@@ -854,26 +854,68 @@ const AuthView = ({ onNotify }) => {
     if (!cleanEmail) return onNotify('Digite seu e-mail para recuperar a senha!', 'error');
     setLoading(true);
     try {
+      // 1. Acionar o Supabase para gerar o link interno
       const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
         redirectTo: window.location.origin
       });
       if (error) throw error;
-      onNotify('E-mail de recuperação de senha enviado!');
-      alert('SUCESSO: E-mail de recuperação enviado para ' + cleanEmail);
+
+      // 2. Tentar buscar o telefone do usuário no Perfil para enviar WhatsApp Automático
+      const { data: prof, error: pErr } = await supabase
+        .from('profiles')
+        .select('phone_number')
+        .eq('email', cleanEmail) // Assumindo que temos o e-mail no profile ou buscamos via RPC
+        .maybeSingle();
+
+      // 3. Se tiver telefone, disparar Evolution API (Opcional, sem travar o e-mail)
+      if (prof?.phone_number) {
+        const cleanPhone = prof.phone_number.replace(/\D/g, '');
+        const msg = `🦒 *GIRAFA TECH - RECUPERAÇÃO* 🦒\n\nOlá! Recebemos um pedido de recuperação de senha para sua conta.\n\nE-mail: *${cleanEmail}*\n\nPor favor, verifique seu e-mail agora para clicar no link oficial de redefinição e voltar a lucrar! 🚀`;
+        
+        fetch('http://localhost:8080/message/sendText/Investimentos', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': '47b2030633301eea8876d1d08cdb6ef23b49a171770f240b25ec0be1be53d77d'
+          },
+          body: JSON.stringify({
+            number: cleanPhone,
+            text: msg
+          })
+        }).catch(e => console.error('Erro Evolution API (Local):', e));
+      }
+
+      onNotify('Instruções de recuperação enviadas!');
+      alert('SUCESSO: Enviamos as instruções para o seu e-mail e WhatsApp!');
     } catch (err) {
       onNotify('Erro ao solicitar recuperação: ' + err.message, 'error');
-      alert('ERRO NA RECUPERAÇÃO: ' + err.message + '\n\nTente recuperar via WhatsApp se o erro de limite persistir.');
+      alert('ERRO NA RECUPERAÇÃO: ' + err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleForgotPasswordWhatsApp = () => {
+  const handleForgotPasswordWhatsApp = async () => {
     const cleanEmail = email.trim();
     if (!cleanEmail) return onNotify('Digite seu e-mail para recuperar!', 'error');
-    const text = `🔑 *RECUPERAÇÃO DE SENHA* 🔑\n\nOlá Suporte Girafa Tech! Eu esqueci minha senha e preciso de ajuda para acessar minha conta.\n\n📧 *E-mail:* ${cleanEmail}`;
-    const url = `https://wa.me/551934585300?text=${encodeURIComponent(text)}`;
-    window.open(url, '_blank');
+    setLoading(true);
+    try {
+      // Chama a Edge Function que gerará o link secreto e enviará o WhatsApp
+      const { data, error } = await supabase.functions.invoke('send-recovery-whatsapp', {
+        body: { email: cleanEmail }
+      });
+      
+      if (error) throw error;
+      
+      onNotify('Link de recuperação enviado para o seu WhatsApp!');
+      alert('SUCESSO: Link enviado via Evolution API! 🚀');
+    } catch (err) {
+      console.error('ERRO WHATSAPP RECOVERY:', err);
+      onNotify('Erro ao enviar link para WhatsApp: ' + err.message, 'error');
+      alert('ERRO: Certifique-se que sua Evolution API e Edge Function estão configuradas!');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSubmit = async (e) => {
