@@ -798,7 +798,10 @@ const AuthView = ({ onNotify }) => {
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: { data: { full_name: fullName, phone_number: phone } }
+          options: { 
+            data: { full_name: fullName, phone_number: phone },
+            emailRedirectTo: window.location.origin
+          }
         });
         if (error) {
           console.error('Erro de Cadastro:', error);
