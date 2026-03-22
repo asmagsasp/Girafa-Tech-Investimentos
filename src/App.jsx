@@ -145,7 +145,7 @@ const App = () => {
       id: user.id,
       full_name: formData.get('full_name'),
       pix_key: formData.get('pix_key'),
-      updated_at: new Date(),
+      updated_at: new Date().toISOString(),
     };
 
     const { error } = await supabase
