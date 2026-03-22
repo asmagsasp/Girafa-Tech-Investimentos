@@ -56,7 +56,11 @@ const App = () => {
       if (sess) {
         setSession(sess);
         setUser(sess.user);
-        setIsAdmin(sess.user.email === 'admin@girafatech.com' || sess.user.email === 'abel@girafatech.com');
+        setIsAdmin(
+          sess.user.email === 'admin@girafatech.com' || 
+          sess.user.email === 'abel@girafatech.com' || 
+          sess.user.email === 'abel.souza.magalhaes@hotmail.com'
+        );
         fetchUserData(sess.user.id);
       } else {
         setLoading(false);
@@ -81,7 +85,11 @@ const App = () => {
         setSession(sess);
         setUser(sess?.user ?? null);
         if (sess) {
-          setIsAdmin(sess.user.email === 'admin@girafatech.com' || sess.user.email === 'abel@girafatech.com');
+          setIsAdmin(
+            sess.user.email === 'admin@girafatech.com' || 
+            sess.user.email === 'abel@girafatech.com' || 
+            sess.user.email === 'abel.souza.magalhaes@hotmail.com'
+          );
           fetchUserData(sess.user.id);
         } else {
           setProfile(null);
