@@ -900,22 +900,33 @@ const AuthView = ({ onNotify }) => {
     const cleanEmail = email.trim();
     if (!cleanEmail) return onNotify('Digite seu e-mail para recuperar!', 'error');
     setLoading(true);
+    console.log('--- DIAGNÓSTICO WHATSAPP ---');
+    console.log('Email:', cleanEmail);
+    console.log('Redirecionamento:', window.location.origin);
+
     try {
       // Chama a Edge Function que gerará o link secreto e enviará o WhatsApp
+      console.log('Chamando Edge Function: send-recovery-whatsapp...');
       const { data, error } = await supabase.functions.invoke('send-recovery-whatsapp', {
         body: { email: cleanEmail }
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error('ERRO RETORNADO PELA FUNÇÃO:', error);
+        throw error;
+      }
       
+      console.log('RESPOSTA SUCESSO:', data);
       onNotify('Link de recuperação enviado para o seu WhatsApp!');
       alert('SUCESSO: Link enviado via Evolution API! 🚀');
     } catch (err) {
-      console.error('ERRO WHATSAPP RECOVERY:', err);
-      onNotify('Erro ao enviar link para WhatsApp: ' + err.message, 'error');
-      alert('ERRO: Certifique-se que sua Evolution API e Edge Function estão configuradas!');
+      console.error('ERRO CRÍTICO NO INVOKE:', err);
+      const errorMsg = err.message || JSON.stringify(err);
+      onNotify('Erro ao enviar link para WhatsApp: ' + errorMsg, 'error');
+      alert('ERRO TÉCNICO DETALHADO:\n' + errorMsg + '\n\nVerifique os Logs no Supabase Dashboard!');
     } finally {
       setLoading(false);
+      console.log('--- FIM DIAGNÓSTICO ---');
     }
   };
 
@@ -995,7 +1006,7 @@ const AuthView = ({ onNotify }) => {
       
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass-card w-full max-w-md p-10 relative z-10">
         <div className="text-center mb-10">
-          <img src="/logo.png" className="w-24 h-24 md:w-32 md:h-32 mx-auto mb-6 shadow-2xl object-contain p-2" />
+          <img src="/logo.png" className="w-32 h-auto mx-auto mb-6 shadow-2xl object-contain p-2" />
           <h2 className="outfit text-3xl font-bold gradient-text">Girafa Tech</h2>
           <p className="text-muted text-sm mt-2">{isLogin ? 'Bem-vindo de volta à elite' : 'Comece sua jornada hoje'}</p>
         </div>
