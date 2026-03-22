@@ -772,6 +772,26 @@ const AuthView = ({ onNotify }) => {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showResend, setShowResend] = useState(false);
+
+  const handleResendEmail = async () => {
+    if (!email) return onNotify('Digite seu e-mail para reenviar!', 'error');
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+        options: { emailRedirectTo: window.location.origin }
+      });
+      if (error) throw error;
+      onNotify('E-mail de confirmação reenviado com sucesso!');
+      setShowResend(false);
+    } catch (err) {
+      onNotify('Erro ao reenviar e-mail: ' + err.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -788,6 +808,7 @@ const AuthView = ({ onNotify }) => {
           console.error('Erro de Login:', error);
           const msg = error.message.toLowerCase();
           if (msg.includes('confirm') || (error.status === 400 && msg.includes('not confirmed'))) {
+             setShowResend(true);
              throw new Error('STATUS_UNCONFIRMED: Verifique seu e-mail para confirmar a conta.');
           }
           throw error;
@@ -870,6 +891,19 @@ const AuthView = ({ onNotify }) => {
             {loading ? <Loader2 className="animate-spin" /> : (isLogin ? 'Entrar' : 'Criar Conta')}
           </button>
         </form>
+
+        {showResend && (
+          <div className="mt-6 p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-center">
+            <p className="text-xs text-amber-200 mb-3">Não recebeu o e-mail ou o link expirou?</p>
+            <button 
+              onClick={handleResendEmail} 
+              disabled={loading}
+              className="btn-outline w-full text-xs py-2 uppercase tracking-widest font-bold"
+            >
+              🚀 Reenviar e-mail de ativação
+            </button>
+          </div>
+        )}
 
         <p className="text-center mt-8 text-sm text-muted">
           {isLogin ? 'Novo por aqui?' : 'Já tem uma conta?'}
