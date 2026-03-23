@@ -791,8 +791,9 @@ const App = () => {
                     <InvestmentCard 
                       key={inv.id} 
                       investment={inv} 
-                      onEdit={() => { setEditingInvestment(inv); setActiveTab('investments'); }}
-                      onDelete={() => handleDeleteInvestment(inv.id)}
+                      onInvest={() => { setSelectedInvestment(inv); setInvestAmount(inv.cost); setModalType('investir'); }} 
+                      onEdit={isAdmin ? (() => { setEditingInvestment(inv); setActiveTab('investments'); }) : undefined}
+                      onDelete={isAdmin ? (() => handleDeleteInvestment(inv.id)) : undefined}
                     />
                   ))}
                 </div>
@@ -854,8 +855,8 @@ const App = () => {
                     key={inv.id} 
                     investment={inv} 
                     onInvest={() => { setSelectedInvestment(inv); setInvestAmount(inv.cost); setModalType('investir'); }} 
-                    onEdit={() => { setEditingInvestment(inv); setActiveTab('investments'); }}
-                    onDelete={() => handleDeleteInvestment(inv.id)}
+                    onEdit={isAdmin ? (() => { setEditingInvestment(inv); setActiveTab('investments'); }) : undefined}
+                    onDelete={isAdmin ? (() => handleDeleteInvestment(inv.id)) : undefined}
                   />
                 ))}
               </div>
