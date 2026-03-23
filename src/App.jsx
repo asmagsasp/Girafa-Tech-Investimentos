@@ -289,7 +289,7 @@ const App = () => {
         .order('validity', { ascending: true });
       
       if (optsErr) throw optsErr;
-      setAvailableInvestments(opts);
+      setAvailableInvestments(opts.filter(o => o.is_active !== false));
 
       // Fetch User Investments
       const { data: userInvs, error: userInvErr } = await supabase
@@ -366,6 +366,7 @@ const App = () => {
       fee: 5,
       yield_percent: Number(formData.get('yieldPercent')),
       final_amount: 0, 
+      is_active: true,
       created_by: user.id
     };
 
@@ -400,8 +401,8 @@ const App = () => {
   };
 
   const handleDeleteInvestment = async (id) => {
-    if (window.confirm('Remover este investimento disponível?')) {
-      const { error } = await supabase.from('investment_options').delete().eq('id', id);
+    if (window.confirm('Arquivar este plano de investimento? Futuros aportes nele serão bloqueados.')) {
+      const { error } = await supabase.from('investment_options').update({ is_active: false }).eq('id', id);
       if (error) {
         console.error('Delete Error:', error);
         showNotification('Erro: ' + error.message, 'error');
