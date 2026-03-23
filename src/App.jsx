@@ -1637,25 +1637,29 @@ const InvestmentCard = ({ investment, onInvest, onSacar, onDelete, onEdit }) => 
   return (
     <div className="glass-card p-6 flex flex-col h-full hover:shadow-[0_0_20px_rgba(251,191,36,0.2)]">
       <div className="flex justify-between items-start mb-6">
-        <div className="flex gap-2">
+        <div className="flex gap-4 relative z-[100]">
           <div className="bg-white/10 p-3 rounded-2xl">
             <TierIcon className={getTierColor(investment.validity)} />
           </div>
           {onEdit && (
-            <button onClick={() => onEdit()} className="bg-amber-500/10 p-3 rounded-2xl text-amber-500 border-none cursor-pointer hover:bg-amber-500/30">
-              <Pencil size={20} />
+            <button 
+              onClick={(e) => { e.stopPropagation(); onEdit(); }} 
+              className="bg-amber-500/20 px-4 py-2 rounded-xl text-amber-500 font-bold border border-amber-500/50 cursor-pointer hover:bg-amber-500/40 text-xs"
+            >
+              📝 EDITAR
             </button>
           )}
           {onDelete && (
-            <button onClick={() => { 
-                console.log('Lixeira Clicada Componente!'); 
-                window.alert('DEBUG: Acionou o código da lixeira!');
+            <button 
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                window.alert('BOTÃO DE LIXEIRA ACIONADO COM SUCESSO! ID: ' + investment.id); 
                 onDelete(); 
               }} 
-              className="bg-red-500/10 p-4 rounded-2xl text-red-400 border-2 border-red-500 cursor-pointer hover:bg-red-500/30"
-              title="REMOVER PLANO"
+              className="bg-red-500 text-white px-4 py-2 rounded-xl font-bold border-none cursor-pointer hover:bg-red-600 shadow-lg animate-bounce text-xs"
+              style={{ minWidth: '120px' }}
             >
-              <Trash2 size={24} />
+              🗑️ APAGAR AGORA
             </button>
           )}
         </div>
