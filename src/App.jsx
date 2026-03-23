@@ -1649,7 +1649,7 @@ const InvestmentCard = ({ investment, onInvest, onSacar, onDelete, onEdit }) => 
           <div className="flex justify-between text-sm"><span className="text-muted">Aporte</span><span className="font-bold">{(investment.min_amount || investment.cost || 0).toLocaleString()} a {(investment.max_amount || 99999).toLocaleString()}</span></div>
           <div className="flex justify-between text-sm"><span className="text-muted">Validade</span><span className="font-bold">{investment.validity} dias</span></div>
           <div className="flex justify-between text-sm"><span className="text-muted">Rendimento Líquido</span><span className="text-green-400 font-bold">+{investment.yield_percent}%</span></div>
-          <div className="flex justify-between text-lg mt-4 pt-4 border-t border-white/5 items-center"><span className="font-semibold outfit text-sm text-muted">Exemplo Retorno</span><span className="text-amber-400 font-bold text-sm">Aplica R$ 1 mil, Volta R$ {(1000 * (1 + investment.yield_percent/100)).toLocaleString()}</span></div>
+          <div className="flex justify-between text-lg mt-4 pt-4 border-t border-white/5 items-center"><span className="font-semibold outfit text-sm text-muted">Retorno Mínimo</span><span className="text-amber-400 font-bold text-sm">R$ {((investment.min_amount || investment.cost || 0) * (1 + investment.yield_percent/100)).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span></div>
         </div>
       </div>
       
