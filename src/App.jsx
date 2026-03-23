@@ -1603,9 +1603,9 @@ const AuthView = ({ onNotify }) => {
 const InvestmentCard = ({ investment, onInvest, onSacar, onDelete, onEdit }) => {
   const getPlanName = (validity) => {
     switch (Number(validity)) {
-      case 3: return '🪙 Projeto Bronze';
-      case 7: return '🪙 Projeto Prata';
-      case 15: return '🪙 Projeto Ouro';
+      case 3: return '🥉 Projeto Bronze';
+      case 7: return '🥈 Projeto Prata';
+      case 15: return '🥇 Projeto Ouro';
       case 30: return '💎 Projeto Diamante';
       default: return `📈 Projeto de ${validity} Dias`;
     }
