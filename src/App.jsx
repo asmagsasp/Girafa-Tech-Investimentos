@@ -401,14 +401,16 @@ const App = () => {
   };
 
   const handleDeleteInvestment = async (id) => {
+    console.log('Tentativa de Deletar/Arquivar ID:', id);
     if (window.confirm('Arquivar este plano de investimento? Futuros aportes nele serão bloqueados.')) {
       const { error } = await supabase.from('investment_options').update({ is_active: false }).eq('id', id);
       if (error) {
         console.error('Delete Error:', error);
         showNotification('Erro: ' + error.message, 'error');
       } else {
-        setAvailableInvestments(availableInvestments.filter(inv => inv.id !== id));
-        showNotification('Removido com sucesso.');
+        console.log('Plano atualizado para is_active=false com sucesso no banco.');
+        setAvailableInvestments(prev => prev.filter(inv => inv.id !== id));
+        showNotification('Plano arquivado com sucesso.');
       }
     }
   };
