@@ -40,7 +40,9 @@ import {
   Sparkles,
   ChevronDown,
   Coins,
-  Gem
+  Gem,
+  Dices,
+  Trophy
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from './lib/supabase';
@@ -137,14 +139,8 @@ const LandingPage = ({ onGetStarted }) => {
         </div>
       </section>
 
-      {/* Footer LP */}
       <footer className="footer-lp">
         <p>© 2026 Girafa Tech | Investimentos & Tecnologia • Todos os direitos reservados</p>
-        <div className="mt-6 flex justify-center gap-6 opacity-40">
-          <span>Privacidade</span>
-          <span>Termos</span>
-          <span>SLA</span>
-        </div>
       </footer>
     </div>
   );
@@ -185,6 +181,130 @@ const generatePixPayload = (valor) => {
   }
   const crcHex = (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
   return payload + crcHex;
+};
+
+const GiraluckySection = ({ profile, updateBalance, showNotification }) => {
+  const [reels, setReels] = useState(['🦒', '🦒', '🦒']);
+  const [spinning, setSpinning] = useState(false);
+  
+  const symbols = ['🦒', '💎', '🪙', '🦁', '🦓', '🎰'];
+  const GIRAFFE_IMG = '/slots-giraffe.png';
+
+  const spin = async () => {
+    if (profile.balance < 50) {
+      showNotification('Saldo insuficiente para girar (Mínimo R$ 50,00)', 'error');
+      return;
+    }
+    
+    setSpinning(true);
+    
+    // Deduct cost
+    const newBalancePre = profile.balance - 50;
+    const { error: dedErr } = await supabase.from('profiles').update({ balance: newBalancePre }).eq('id', profile.id);
+    if (dedErr) {
+      showNotification('Erro ao processar aposta.', 'error');
+      setSpinning(false);
+      return;
+    }
+    updateBalance(newBalancePre);
+
+    const spinInterval = setInterval(() => {
+      setReels([
+        symbols[Math.floor(Math.random() * symbols.length)],
+        symbols[Math.floor(Math.random() * symbols.length)],
+        symbols[Math.floor(Math.random() * symbols.length)]
+      ]);
+    }, 100);
+
+    setTimeout(async () => {
+      clearInterval(spinInterval);
+      const finalResult = [
+        symbols[Math.floor(Math.random() * symbols.length)],
+        symbols[Math.floor(Math.random() * symbols.length)],
+        symbols[Math.floor(Math.random() * symbols.length)]
+      ];
+      setReels(finalResult);
+      setSpinning(false);
+
+      if (finalResult.every(s => s === '🦒')) {
+        const winningBalance = newBalancePre * 2;
+        const { error: winErr } = await supabase.from('profiles').update({ balance: winningBalance }).eq('id', profile.id);
+        if (!winErr) {
+          updateBalance(winningBalance);
+          showNotification('JACKPOT!!! SEU SALDO DOBROU!', 'success');
+        }
+      } else {
+        showNotification('Não foi dessa vez! Tente novamente.');
+      }
+    }, 3000);
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-8 animate-in">
+      <div className="glass-card p-12 text-center border-purple-500/30 relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-purple-500 to-transparent animate-pulse" />
+        
+        <h2 className="outfit text-5xl font-black mb-2 text-white italic tracking-tighter uppercase italic">GiraLucky 🎰</h2>
+        <p className="text-purple-400 text-sm font-bold uppercase tracking-[0.2em] mb-12">Dobre seu capital com o poder da Girafa!</p>
+
+        <div className="flex justify-center gap-6 mb-12">
+          {reels.map((symbol, i) => (
+            <motion.div 
+              key={i}
+              animate={spinning ? { y: [0, -20, 0], scale: [1, 1.1, 1] } : {}}
+              transition={{ repeat: Infinity, duration: 0.2 }}
+              className="w-32 h-48 bg-black/40 border-4 border-purple-500/50 rounded-3xl flex items-center justify-center text-7xl shadow-[0_0_30px_rgba(168,85,247,0.2)]"
+            >
+              {symbol === '🦒' ? (
+                <img src={GIRAFFE_IMG} className="w-20 h-20 object-contain drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]" alt="Girafa" />
+              ) : symbol}
+            </motion.div>
+          ))}
+        </div>
+
+        <div className="space-y-6">
+          <button 
+            onClick={spin}
+            disabled={spinning}
+            className={`w-full max-w-sm mx-auto py-6 rounded-2xl font-black text-2xl uppercase tracking-widest transition-all ${
+              spinning ? 'bg-purple-900/50 text-purple-700 cursor-not-allowed' : 'secondary-btn hover:scale-105 active:scale-95 shadow-[0_0_40px_rgba(168,85,247,0.4)]'
+            }`}
+          >
+            {spinning ? 'Girando...' : 'GIRAR (R$ 50,00)'}
+          </button>
+          
+          <div className="flex items-center justify-center gap-2 text-muted text-xs">
+            <Trophy size={14} className="text-amber-500" />
+            <span>Acerte <strong>3 Girafas</strong> para dobrar todo seu saldo instantaneamente!</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="glass-card p-6 border-white/5 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-2xl">🍀</div>
+          <div className="text-left">
+            <p className="text-xs text-muted uppercase font-bold tracking-tighter">Probabilidade</p>
+            <p className="text-sm font-bold">Justa e Aleatória</p>
+          </div>
+        </div>
+        <div className="glass-card p-6 border-white/5 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-2xl">💰</div>
+          <div className="text-left">
+            <p className="text-xs text-muted uppercase font-bold tracking-tighter">Custo por Giro</p>
+            <p className="text-sm font-bold">R$ 50,00 fixos</p>
+          </div>
+        </div>
+        <div className="glass-card p-6 border-white/5 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-2xl">🦒</div>
+          <div className="text-left">
+            <p className="text-xs text-muted uppercase font-bold tracking-tighter">Prêmio Máximo</p>
+            <p className="text-sm font-bold text-amber-500">Saldo 2X INFINITO</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 const App = () => {
@@ -753,6 +873,9 @@ const App = () => {
           <button onClick={() => setActiveTab('explore')} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'explore' ? 'active' : ''}`}>
             <TrendingUp size={20} /> Oportunidades
           </button>
+          <button onClick={() => setActiveTab('giralucky')} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'giralucky' ? 'active' : ''} text-amber-500`}>
+            <Dices size={20} /> GiraLucky
+          </button>
           <button onClick={() => setActiveTab('my_investments')} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'my_investments' ? 'active' : ''}`}>
             <Wallet size={20} /> Meus Investimentos
           </button>
@@ -802,6 +925,14 @@ const App = () => {
                   <p className="text-muted text-sm">Adicione saldo na sua carteira Girafa Cloud.</p>
                 </div>
                 
+                <div onClick={() => setActiveTab('giralucky')} className="glass-card stat-card cursor-pointer border-purple-500/20 hover:border-purple-500/50 group">
+                  <div className="bg-purple-500/10 w-12 h-12 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                    <Dices className="text-purple-500" />
+                  </div>
+                  <h3 className="outfit text-xl mb-1">GiraLucky</h3>
+                  <p className="text-muted text-sm">Tente a sorte e dobre seu capital agora!</p>
+                </div>
+
                 <div onClick={() => setActiveTab('my_investments')} className="glass-card stat-card cursor-pointer hover:border-blue-500/50 group">
                   <div className="bg-blue-500/10 w-12 h-12 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                     <SendHorizontal className="text-blue-500" />
@@ -1145,6 +1276,7 @@ const App = () => {
               </div>
             </motion.div>
           )}
+          {activeTab === 'giralucky' && <GiraluckySection profile={profile} updateBalance={(nb) => setProfile(prev => ({...prev, balance: nb}))} showNotification={showNotification} />}
         </AnimatePresence>
       </main>
 
@@ -1669,5 +1801,6 @@ const InvestmentCard = ({ investment, onInvest, onSacar, onDelete, onEdit, isAdm
     </div>
   );
 };
+
 
 export default App;
