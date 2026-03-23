@@ -856,7 +856,7 @@ const App = () => {
           </button>
 
           <button onClick={() => { setActiveTab('dashboard'); setShowLanding(false); }} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'dashboard' && !showLanding ? 'active' : ''}`}>
-            <LayoutDashboard size={20} /> Dashboard
+            <LayoutDashboard size={20} /> Tela Inicial
           </button>
           
           {isAdmin && (
