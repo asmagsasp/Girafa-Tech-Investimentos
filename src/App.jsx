@@ -405,18 +405,22 @@ const App = () => {
   };
 
   const handleDeleteInvestment = async (id) => {
-    window.alert('INICIANDO PROCESSO DE EXCLUSÃO NO BANCO: ' + id);
-    console.log('Tentativa de Deletar/Arquivar ID:', id);
-    if (window.confirm('Arquivar este plano de investimento? Futuros aportes nele serão bloqueados.')) {
-      const { error } = await supabase.from('investment_options').update({ is_active: false }).eq('id', id);
-      if (error) {
-        console.error('Delete Error:', error);
-        showNotification('Erro: ' + error.message, 'error');
-      } else {
-        console.log('Plano atualizado para is_active=false com sucesso no banco.');
-        setAvailableInvestments(prev => prev.filter(inv => inv.id !== id));
-        showNotification('Plano arquivado com sucesso.');
-      }
+    console.log('Iniciando arquivamento do ID:', id);
+    
+    const { data: updatedData, error } = await supabase
+      .from('investment_options')
+      .update({ is_active: false })
+      .eq('id', id)
+      .select();
+
+    if (error) {
+      window.alert('🚨 ERRO NO BANCO: ' + error.message);
+      console.error('Delete Error:', error);
+    } else if (!updatedData || updatedData.length === 0) {
+      window.alert('⚠️ AVISO: O banco retornou que NADA foi alterado. O ID do plano pode estar incorreto ou o RLS bloqueou a alteração sem avisar erro direto.');
+    } else {
+      window.alert('✅ SUCESSO! O banco confirmou o arquivamento do plano. Removendo da sua tela...');
+      setAvailableInvestments(prev => prev.filter(inv => inv.id !== id));
     }
   };
 
