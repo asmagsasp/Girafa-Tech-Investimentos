@@ -324,22 +324,52 @@ const App = () => {
   };
 
   const handleReceivePix = async () => {
+    if (!user) return showNotification('Sessão expirada. Refaça o login.', 'error');
     setPixStatus('checking');
-    setTimeout(async () => {
-      const extra = Number(pixAmount) || 1000;
-      const newBal = profile.balance + extra;
-      const { error } = await supabase.from('profiles').update({ balance: newBal }).eq('id', user.id);
-      
-      if (error) {
-        showNotification('Erro ao compensar Pix.', 'error');
+    
+    try {
+      const extra = Number(pixAmount) || 0;
+      if (extra <= 0) {
+        showNotification('Digite um valor válido para depositar.', 'error');
         setPixStatus('idle');
-      } else {
-        setProfile({ ...profile, balance: newBal });
-        setPixStatus('confirmed');
-        showNotification(`Pix de R$ ${extra.toFixed(2)} compensado!`);
-        setTimeout(() => { setModalType(null); setPixStatus('idle'); }, 2000);
+        return;
       }
-    }, 2000);
+
+      // Pequeno delay para simular a verificação da rede Pix
+      setTimeout(async () => {
+        try {
+          const currentBal = Number(profile?.balance || 0);
+          const newBal = currentBal + extra;
+          
+          const { error } = await supabase
+            .from('profiles')
+            .update({ balance: newBal })
+            .eq('id', user.id);
+          
+          if (error) {
+            console.error('ERRO DE DEPÓSITO:', error);
+            alert('ERRO NO DEPÓSITO: ' + error.message);
+            showNotification('Erro ao compensar Pix.', 'error');
+            setPixStatus('idle');
+          } else {
+            setProfile({ ...profile, balance: newBal });
+            setPixStatus('confirmed');
+            showNotification(`Pix de R$ ${extra.toFixed(2)} compensado!`);
+            setTimeout(() => { 
+              setModalType(null); 
+              setPixStatus('idle');
+              setPixAmount(''); 
+            }, 2000);
+          }
+        } catch (inner) {
+          console.error('CRITICAL PIX ERROR:', inner);
+          setPixStatus('idle');
+        }
+      }, 2000);
+    } catch (err) {
+      console.error('Error in handleReceivePix:', err);
+      setPixStatus('idle');
+    }
   };
 
   const handleLogout = async () => {
