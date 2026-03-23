@@ -1567,12 +1567,32 @@ const AuthView = ({ onNotify }) => {
 };
 
 const InvestmentCard = ({ investment, onInvest, onSacar, onDelete, onEdit }) => {
+  const getPlanName = (validity) => {
+    switch (Number(validity)) {
+      case 3: return 'Projeto Bronze';
+      case 7: return 'Projeto Prata';
+      case 15: return 'Projeto Ouro';
+      case 30: return 'Projeto Diamante';
+      default: return `Projeto de ${validity} Dias`;
+    }
+  };
+
+  const getTierColor = (validity) => {
+    switch (Number(validity)) {
+      case 3: return 'text-orange-400';
+      case 7: return 'text-slate-300';
+      case 15: return 'text-amber-400';
+      case 30: return 'text-cyan-400';
+      default: return 'text-emerald-400';
+    }
+  };
+
   return (
     <div className="glass-card p-6 flex flex-col h-full hover:shadow-[0_0_20px_rgba(251,191,36,0.2)]">
       <div className="flex justify-between items-start mb-6">
         <div className="flex gap-2">
-          <div className="bg-amber-500/10 p-3 rounded-2xl">
-            <TrendingUp className="text-amber-500" />
+          <div className="bg-white/10 p-3 rounded-2xl">
+            <TrendingUp className={getTierColor(investment.validity)} />
           </div>
           {onEdit && (
             <button onClick={(e) => { e.stopPropagation(); onEdit(); }} className="bg-amber-500/10 p-3 rounded-2xl text-amber-500 border-none cursor-pointer hover:bg-amber-500/30">
@@ -1588,7 +1608,7 @@ const InvestmentCard = ({ investment, onInvest, onSacar, onDelete, onEdit }) => 
       </div>
       
       <div className="mb-6 flex-1">
-        <h4 className="outfit text-xl mb-4">Investimento Ouro</h4>
+        <h4 className={`outfit text-xl mb-4 font-bold ${getTierColor(investment.validity)}`}>{getPlanName(investment.validity)}</h4>
         <div className="space-y-3">
           <div className="flex justify-between text-sm"><span className="text-muted">Custo</span><span className="font-bold">R$ {investment.cost.toLocaleString()}</span></div>
           <div className="flex justify-between text-sm"><span className="text-muted">Validade</span><span className="font-bold">{investment.validity} dias</span></div>
