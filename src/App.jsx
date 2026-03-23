@@ -780,7 +780,12 @@ const App = () => {
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 animate-in">
           <div>
             <h2 className="text-3xl font-bold outfit mb-1 text-white">Olá Investidor, {profile?.full_name?.split(' ')[0] || ''}</h2>
-            {isAdmin && <span className="text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-widest animate-pulse">Modo Admin Ativo</span>}
+            {isAdmin && (
+              <div className="flex gap-2 items-center">
+                <span className="text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-widest animate-pulse">Modo Admin Ativo</span>
+                <button onClick={() => window.alert('SITE ESTÁ VIVO E RECEBENDO CLIQUES!')} className="bg-white text-black px-2 py-0.5 rounded text-[10px] font-bold">TESTAR CLIQUES GERAIS</button>
+              </div>
+            )}
             <p className="text-muted">Gestão inteligente do seu capital em nuvem.</p>
           </div>
           <div className="flex gap-4 w-full md:w-auto overflow-x-auto pb-4 md:pb-0">
@@ -1635,34 +1640,34 @@ const InvestmentCard = ({ investment, onInvest, onSacar, onDelete, onEdit }) => 
   const TierIcon = Number(investment.validity) === 30 ? Gem : (Number(investment.validity) === 3 || Number(investment.validity) === 7 || Number(investment.validity) === 15 ? Coins : TrendingUp);
 
   return (
-    <div className="glass-card p-6 flex flex-col h-full hover:shadow-[0_0_20px_rgba(251,191,36,0.2)]">
-      <div className="flex justify-between items-start mb-6">
-        <div className="flex gap-4 relative z-[100]">
+    <div className="glass-card p-6 flex flex-col h-full border-2 border-white/5">
+      <div className="flex flex-col gap-4 mb-6">
+        <div className="flex gap-4">
           <div className="bg-white/10 p-3 rounded-2xl">
             <TierIcon className={getTierColor(investment.validity)} />
           </div>
-          {onEdit && (
+        </div>
+
+        {isAdmin && (
+          <div className="flex flex-col gap-2 relative" style={{ zIndex: 9999 }}>
             <button 
-              onClick={(e) => { e.stopPropagation(); onEdit(); }} 
-              className="bg-amber-500/20 px-4 py-2 rounded-xl text-amber-500 font-bold border border-amber-500/50 cursor-pointer hover:bg-amber-500/40 text-xs"
-            >
-              📝 EDITAR
-            </button>
-          )}
-          {onDelete && (
-            <button 
-              onClick={(e) => { 
-                e.stopPropagation(); 
-                window.alert('BOTÃO DE LIXEIRA ACIONADO COM SUCESSO! ID: ' + investment.id); 
+              onPointerDown={(e) => { 
+                e.preventDefault(); 
+                window.alert('POINTER DOWN DETECTADO NA LIXEIRA!'); 
                 onDelete(); 
               }} 
-              className="bg-red-500 text-white px-4 py-2 rounded-xl font-bold border-none cursor-pointer hover:bg-red-600 shadow-lg animate-bounce text-xs"
-              style={{ minWidth: '120px' }}
+              className="w-full bg-red-600 text-white py-4 rounded-xl font-black text-xs cursor-pointer active:scale-95 shadow-[0_0_15px_rgba(220,38,38,0.5)] border-4 border-white"
             >
-              🗑️ APAGAR AGORA
+              ⚠️ APAGAR ESTE PLANO (TOQUE AQUI) ⚠️
             </button>
-          )}
-        </div>
+            <button 
+              onClick={() => onEdit()}
+              className="w-full bg-amber-500/20 text-amber-500 py-2 rounded-xl font-bold text-[10px] border border-amber-500/50"
+            >
+              EDITAR VALORES
+            </button>
+          </div>
+        )}
       </div>
       
       <div className="mb-6 flex-1">
