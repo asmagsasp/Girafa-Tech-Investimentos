@@ -775,6 +775,7 @@ const App = () => {
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 animate-in">
           <div>
             <h2 className="text-3xl font-bold outfit mb-1 text-white">Olá Investidor, {profile?.full_name?.split(' ')[0] || ''}</h2>
+            {isAdmin && <span className="text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-widest animate-pulse">Modo Admin Ativo</span>}
             <p className="text-muted">Gestão inteligente do seu capital em nuvem.</p>
           </div>
           <div className="flex gap-4 w-full md:w-auto overflow-x-auto pb-4 md:pb-0">
@@ -1636,13 +1637,20 @@ const InvestmentCard = ({ investment, onInvest, onSacar, onDelete, onEdit }) => 
             <TierIcon className={getTierColor(investment.validity)} />
           </div>
           {onEdit && (
-            <button onClick={(e) => { e.stopPropagation(); onEdit(); }} className="bg-amber-500/10 p-3 rounded-2xl text-amber-500 border-none cursor-pointer hover:bg-amber-500/30">
+            <button onClick={() => onEdit()} className="bg-amber-500/10 p-3 rounded-2xl text-amber-500 border-none cursor-pointer hover:bg-amber-500/30">
               <Pencil size={20} />
             </button>
           )}
           {onDelete && (
-            <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="bg-red-500/10 p-3 rounded-2xl text-red-400 border-none cursor-pointer hover:bg-red-500/30">
-              <Trash2 size={20} />
+            <button onClick={() => { 
+                console.log('Lixeira Clicada Componente!'); 
+                window.alert('DEBUG: Acionou o código da lixeira!');
+                onDelete(); 
+              }} 
+              className="bg-red-500/10 p-4 rounded-2xl text-red-400 border-2 border-red-500 cursor-pointer hover:bg-red-500/30"
+              title="REMOVER PLANO"
+            >
+              <Trash2 size={24} />
             </button>
           )}
         </div>
