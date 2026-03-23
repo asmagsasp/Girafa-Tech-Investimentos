@@ -270,15 +270,15 @@ const App = () => {
   const fetchUserData = async (userId) => {
     setLoading(true);
     try {
-      // Fetch Profile
+      // Fetch Profile (Tolerant to missing profile from bugged registrations)
       const { data: prof, error: profErr } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
       
-      if (profErr) throw profErr;
-      setProfile(prof);
+      if (profErr) console.warn('Aviso: Perfil não encontrado ou erro.', profErr);
+      setProfile(prof || { full_name: 'Usuário Girafa', balance: 0 });
 
       // Fetch Investment Options
       const { data: opts, error: optsErr } = await supabase
