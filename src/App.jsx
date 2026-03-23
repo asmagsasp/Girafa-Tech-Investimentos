@@ -186,9 +186,45 @@ const generatePixPayload = (valor) => {
 const GiraluckySection = ({ profile, updateBalance, showNotification }) => {
   const [reels, setReels] = useState(['🦒', '7', '🍓']);
   const [spinning, setSpinning] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
   
   const symbols = ['🦒', '🍓', '7', '💎', '🪙', '🎰'];
   const GIRAFFE_IMG = '/slots-giraffe.png';
+
+  const ConfettiBurst = () => (
+    <div className="absolute inset-0 pointer-events-none z-50 overflow-hidden flex items-center justify-center">
+      {Array.from({ length: 50 }).map((_, i) => (
+        <motion.div
+          key={i}
+          initial={{ scale: 0, x: 0, y: 0, rotate: 0 }}
+          animate={{ 
+            scale: [0, 1.2, 0.8, 0], 
+            x: (Math.random() - 0.5) * 1200, 
+            y: (Math.random() - 0.5) * 800,
+            rotate: Math.random() * 720
+          }}
+          transition={{ duration: 2.5, ease: "easeOut" }}
+          className={`absolute w-3 h-3 rounded-sm ${i % 2 === 0 ? 'bg-amber-400' : 'bg-purple-500'} shadow-[0_0_10px_rgba(251,191,36,0.6)]`}
+        />
+      ))}
+      {Array.from({ length: 20 }).map((_, i) => (
+        <motion.div
+          key={`coins-${i}`}
+          initial={{ y: 50, x: 0, scale: 0 }}
+          animate={{ 
+            y: [-100, 300], 
+            x: (Math.random() - 0.5) * 800,
+            scale: [0, 1.5, 1],
+            rotateY: [0, 720]
+          }}
+          transition={{ duration: 3, ease: "anticipate" }}
+          className="absolute text-3xl"
+        >
+          🪙
+        </motion.div>
+      ))}
+    </div>
+  );
 
   const spin = async () => {
     if (profile.balance < 5) {
@@ -197,6 +233,7 @@ const GiraluckySection = ({ profile, updateBalance, showNotification }) => {
     }
     
     setSpinning(true);
+    setShowConfetti(false);
     
     // Deduct cost (R$ 5,00)
     const newBalancePre = profile.balance - 5;
@@ -241,12 +278,14 @@ const GiraluckySection = ({ profile, updateBalance, showNotification }) => {
       }
 
       if (prize > 0) {
+        setShowConfetti(true);
         const winningBalance = newBalancePre + prize;
         const { error: winErr } = await supabase.from('profiles').update({ balance: winningBalance }).eq('id', profile.id);
         if (!winErr) {
           updateBalance(winningBalance);
           showNotification(winMsg, 'success');
         }
+        setTimeout(() => setShowConfetti(false), 3000);
       } else {
         showNotification('Não foi dessa vez! Tente novamente.');
       }
@@ -254,7 +293,9 @@ const GiraluckySection = ({ profile, updateBalance, showNotification }) => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-in">
+    <div className="max-w-4xl mx-auto space-y-8 animate-in relative">
+      {showConfetti && <ConfettiBurst />}
+
       <div className="glass-card p-12 text-center border-purple-500/30 relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-purple-500 to-transparent animate-pulse" />
         
