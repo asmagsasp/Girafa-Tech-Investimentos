@@ -524,8 +524,24 @@ const App = () => {
     </div>
   );
 
-  if (!session && showLanding) {
+  // Se o usuário quer ver a landing (ou não está logado e showLanding é true)
+  if (showLanding && !session) {
     return <LandingPage onGetStarted={() => setShowLanding(false)} />;
+  }
+  
+  // Se está logado mas clicou no menu "Ecossistema"
+  if (showLanding && session) {
+    return (
+      <div className="relative">
+        <button 
+          onClick={() => setShowLanding(false)} 
+          className="fixed top-8 right-8 z-[200] bg-amber-500 text-black px-6 py-3 rounded-full font-bold shadow-2xl hover:scale-105 transition-all"
+        >
+          Voltar para o App ➔
+        </button>
+        <LandingPage onGetStarted={() => setShowLanding(false)} />
+      </div>
+    );
   }
 
   if (!supabase || !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
@@ -567,7 +583,11 @@ const App = () => {
         </div>
 
         <div className="flex-1">
-          <button onClick={() => setActiveTab('dashboard')} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'dashboard' ? 'active' : ''}`}>
+          <button onClick={() => setShowLanding(true)} className={`nav-link w-full border-none cursor-pointer text-left ${showLanding ? 'active' : ''}`}>
+            <Sparkles size={20} /> Ecossistema
+          </button>
+
+          <button onClick={() => { setActiveTab('dashboard'); setShowLanding(false); }} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'dashboard' && !showLanding ? 'active' : ''}`}>
             <LayoutDashboard size={20} /> Dashboard
           </button>
           
