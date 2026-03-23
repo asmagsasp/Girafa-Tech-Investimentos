@@ -398,8 +398,10 @@ const App = () => {
   const handleDeleteInvestment = async (id) => {
     if (window.confirm('Remover este investimento disponível?')) {
       const { error } = await supabase.from('investment_options').delete().eq('id', id);
-      if (error) showNotification('Erro ao remover.', 'error');
-      else {
+      if (error) {
+        console.error('Delete Error:', error);
+        showNotification('Erro: ' + error.message, 'error');
+      } else {
         setAvailableInvestments(availableInvestments.filter(inv => inv.id !== id));
         showNotification('Removido com sucesso.');
       }
