@@ -605,46 +605,48 @@ const App = () => {
     try {
       const accrued = Number(calculateAccruedEarnings(inv));
       if (accrued < 20) {
-        showNotification('Atenção: O saque mínimo permitido é de R$ 20,00 de lucro.', 'error');
+        showNotification('O saque mínimo permitido é de R$ 20,00 de lucro.', 'error');
         alert('SAQUE NEGADO: Seu lucro atual de R$ ' + accrued.toFixed(2) + ' ainda é menor que o mínimo de R$ 20,00.');
         return;
       }
 
       setPixStatus('checking');
-      
-      setTimeout(async () => {
-        try {
-          const principal = Number(inv.invested_amount);
-          const fee = (principal + accrued) * 0.05;
-          const finalPayout = (principal + accrued) - fee;
 
-          const newBal = Number(profile.balance) + finalPayout;
+      // 1. Calculate Payout (includes principal + profit minus 5% fee)
+      const principal = Number(inv.invested_amount);
+      const fee = (principal + accrued) * 0.05;
+      const finalPayout = (principal + accrued) - fee;
 
-          const { error: balErr } = await supabase.from('profiles').update({ balance: newBal }).eq('id', user.id);
-          const { error: delErr } = await supabase.from('user_investments').delete().eq('active_id', inv.active_id);
-
-          if (balErr || delErr) {
-            showNotification('Erro ao processar resgate em nuvem.', 'error');
-            setPixStatus('idle');
-          } else {
-            setProfile({ ...profile, balance: newBal });
-            setMyInvestments(myInvestments.filter(i => i.active_id !== inv.active_id));
-            setPixStatus('confirmed');
-            showNotification(`Resgate de R$ ${finalPayout.toFixed(2)} concluído!`);
-            
-            setTimeout(() => {
-              setModalType(null);
-              setPixStatus('idle');
-            }, 2000);
-          }
-        } catch (innerErr) {
-          console.error('Erro interno no processamento:', innerErr);
-          setPixStatus('idle');
+      // 2. Call the REAL RecargaPay Withdrawal Function (Supabase Edge Function)
+      const { data: result, error: rpcErr } = await supabase.functions.invoke('process-pix-withdrawal', {
+        body: { 
+          amount: finalPayout, 
+          pix_key: profile.pix_key, 
+          user_id: user.id,
+          active_id: inv.active_id // used for ref / deletion logic in backend
         }
-      }, 2500);
+      });
+
+      if (rpcErr || (result && result.error)) {
+        console.error('RPC ERROR:', rpcErr || result.error);
+        showNotification(result?.error || 'Erro ao processar saque real.', 'error');
+        setPixStatus('idle');
+      } else {
+        // 3. Remove the investment from state (The backend handles DB deletion for security)
+        setProfile({ ...profile, balance: result.new_balance });
+        setMyInvestments(myInvestments.filter(i => i.active_id !== inv.active_id));
+        setPixStatus('confirmed');
+        showNotification(`Resgate PIX de R$ ${finalPayout.toFixed(2)} CONCLUÍDO!`);
+        
+        setTimeout(() => {
+          setModalType(null);
+          setPixStatus('idle');
+        }, 3000);
+      }
     } catch (err) {
-      console.error('Erro geral no handleSacar:', err);
-      showNotification('Erro ao processar resgate.', 'error');
+      console.error('Erro fatal no saque:', err);
+      showNotification('Conexão instável. Tente novamente em instantes.', 'error');
+      setPixStatus('idle');
     }
   };
 
