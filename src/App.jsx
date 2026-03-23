@@ -184,11 +184,11 @@ const generatePixPayload = (valor) => {
 };
 
 const GiraluckySection = ({ profile, updateBalance, showNotification }) => {
-  const [reels, setReels] = useState(['🦒', '7', '🍓']);
+  const [reels, setReels] = useState(['🦒', '7', '💎']);
   const [spinning, setSpinning] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   
-  const symbols = ['🦒', '🍓', '7', '💎', '🪙', '🎰'];
+  const symbols = ['🦒', '💎', '7', '🪙', '🦁', '🎰'];
   const GIRAFFE_IMG = '/slots-giraffe.png';
 
   const ConfettiBurst = () => (
@@ -204,7 +204,7 @@ const GiraluckySection = ({ profile, updateBalance, showNotification }) => {
             rotate: Math.random() * 720
           }}
           transition={{ duration: 2.5, ease: "easeOut" }}
-          className={`absolute w-3 h-3 rounded-sm ${i % 2 === 0 ? 'bg-amber-400' : 'bg-purple-500'} shadow-[0_0_10px_rgba(251,191,36,0.6)]`}
+          className={`absolute w-3 h-3 rounded-sm ${i % 2 === 0 ? 'bg-amber-400' : 'bg-blue-500'} shadow-[0_0_10px_rgba(251,191,36,0.6)]`}
         />
       ))}
       {Array.from({ length: 20 }).map((_, i) => (
@@ -269,9 +269,9 @@ const GiraluckySection = ({ profile, updateBalance, showNotification }) => {
       if (finalResult.every(s => s === '7')) {
         prize = 7;
         winMsg = 'SORTE! Você ganhou R$ 7,00!';
-      } else if (finalResult.every(s => s === '🍓')) {
+      } else if (finalResult.every(s => s === '💎')) {
         prize = 20;
-        winMsg = 'MUITO BOM! Você ganhou R$ 20,00!';
+        winMsg = 'MUITO BOM! Diamantes são eternos! Ganhou R$ 20,00!';
       } else if (finalResult.every(s => s === '🦒')) {
         prize = 100;
         winMsg = 'JACKPOT!!! Você ganhou R$ 100,00!';
@@ -330,7 +330,7 @@ const GiraluckySection = ({ profile, updateBalance, showNotification }) => {
           
           <div className="flex items-center justify-center gap-2 text-muted text-xs">
             <Trophy size={14} className="text-amber-500" />
-            <span>Tabela de Prêmios: <strong>3x 🦒 = R$ 100</strong> | <strong>3x 🍓 = R$ 20</strong> | <strong>3x 7 = R$ 7</strong></span>
+            <span>Tabela de Prêmios: <strong>3x 🦒 = R$ 100</strong> | <strong>3x 💎 = R$ 20</strong> | <strong>3x 7 = R$ 7</strong></span>
           </div>
         </div>
       </div>
