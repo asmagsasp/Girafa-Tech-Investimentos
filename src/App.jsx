@@ -29,7 +29,7 @@ import {
   Bus,
   MessageSquare,
   Heart,
-  Hands,
+  HeartHandshake,
   Calculator,
   Home,
   Tag,
@@ -47,7 +47,7 @@ const SPONSOR_PROJECTS = [
   { id: 1, name: 'Bus Alert', desc: 'Sistema de Alerta de Ônibus em Tempo Real', icon: Bus },
   { id: 2, name: 'Disparador Pro', desc: 'Automação Inteligente para WhatsApp', icon: MessageSquare },
   { id: 3, name: 'Cupido Católico', desc: 'Plataforma de Relacionamento Cristão', icon: Heart },
-  { id: 4, name: 'Minha Novena', desc: 'App de Devocional e Orações', icon: Hands },
+  { id: 4, name: 'Minha Novena', desc: 'App de Devocional e Orações', icon: HeartHandshake },
   { id: 5, name: 'Otimização Fiscal IA', desc: 'Gestão Tributária com Inteligência Artificial', icon: Calculator },
   { id: 6, name: 'Imob Tech Pro', desc: 'Plataforma para Mercado Imobiliário Elite', icon: Home },
   { id: 7, name: 'Oferta Aqui', desc: 'Marketplace de Ofertas Locais', icon: Tag },
@@ -102,7 +102,10 @@ const LandingPage = ({ onGetStarted }) => {
               className="landing-project-card"
             >
               <div className="project-icon-wrapper">
-                <project.icon size={30} />
+                {(() => {
+                  const Icon = project.icon;
+                  return <Icon size={30} />;
+                })()}
               </div>
               <h4 className="outfit">{project.name}</h4>
               <p>{project.desc}</p>
