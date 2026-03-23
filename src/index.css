@@ -108,6 +108,21 @@ input:focus {
   z-index: 100;
 }
 
+.sidebar .flex-1 {
+  overflow-y: auto;
+  margin: 20px 0;
+  padding-right: 4px;
+}
+
+.sidebar .flex-1::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar .flex-1::-webkit-scrollbar-thumb {
+  background: rgba(255, 215, 0, 0.1);
+  border-radius: 10px;
+}
+
 .main-content {
   margin-left: var(--sidebar-w);
   padding: 40px;
