@@ -353,12 +353,17 @@ const App = () => {
   const handleCreateInvestment = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
+    const minVal = Number(formData.get('minAmount'));
+    const maxVal = Number(formData.get('maxAmount'));
+    
     const invData = {
       validity: Number(formData.get('validity')),
-      cost: Number(formData.get('cost')),
+      cost: minVal, // fallback p/ db legado caso falte
+      min_amount: minVal,
+      max_amount: maxVal,
       fee: 5,
       yield_percent: Number(formData.get('yieldPercent')),
-      final_amount: Number(formData.get('finalAmount')),
+      final_amount: 0, 
       created_by: user.id
     };
 
@@ -456,6 +461,18 @@ const App = () => {
 
   const handleInvest = async () => {
     const amount = Number(investAmount);
+    
+    const min = selectedInvestment.min_amount || selectedInvestment.cost || 0;
+    const max = selectedInvestment.max_amount || 999999;
+    
+    if (!amount || amount < min) {
+      showNotification(`O valor mínimo é R$ ${min.toLocaleString()}`, 'error');
+      return;
+    }
+    if (amount > max) {
+      showNotification(`O valor máximo permitido é R$ ${max.toLocaleString()}`, 'error');
+      return;
+    }
     if (profile.balance < amount) {
       showNotification('Saldo insuficiente!', 'error');
       return;
@@ -471,7 +488,7 @@ const App = () => {
       invested_amount: amount,
       validity: selectedInvestment.validity,
       yield_percent: selectedInvestment.yield_percent,
-      final_amount: selectedInvestment.final_amount,
+      final_amount: amount * (1 + (selectedInvestment.yield_percent / 100)),
       status: 'Ativo'
     };
 
@@ -791,7 +808,7 @@ const App = () => {
                     <InvestmentCard 
                       key={inv.id} 
                       investment={inv} 
-                      onInvest={() => { setSelectedInvestment(inv); setInvestAmount(inv.cost); setModalType('investir'); }} 
+                      onInvest={() => { setSelectedInvestment(inv); setInvestAmount(inv.min_amount || inv.cost); setModalType('investir'); }} 
                       onEdit={isAdmin ? (() => { setEditingInvestment(inv); setActiveTab('investments'); }) : undefined}
                       onDelete={isAdmin ? (() => handleDeleteInvestment(inv.id)) : undefined}
                     />
@@ -820,23 +837,19 @@ const App = () => {
                       <input type="number" name="validity" defaultValue={editingInvestment?.validity || ''} required placeholder="Ex: 30" />
                     </div>
                     <div className="flex flex-col gap-2">
-                      <label className="text-sm text-muted">Custo do Investimento (R$)</label>
-                      <input type="number" name="cost" defaultValue={editingInvestment?.cost || ''} required placeholder="Ex: 500" />
+                       <label className="text-sm text-muted">Rendimento no Período (%)</label>
+                       <input type="number" name="yieldPercent" defaultValue={editingInvestment?.yield_percent || ''} required placeholder="Ex: 15" />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-6">
                     <div className="flex flex-col gap-2">
-                      <label className="text-sm text-muted">Taxa de Saque (%)</label>
-                      <input type="text" value="5%" disabled className="bg-white/5 opacity-50" />
+                      <label className="text-sm text-muted">Valor Mínimo (R$)</label>
+                      <input type="number" name="minAmount" defaultValue={editingInvestment?.min_amount || editingInvestment?.cost || ''} required placeholder="Ex: 50" />
                     </div>
                     <div className="flex flex-col gap-2">
-                      <label className="text-sm text-muted">Rendimento no Período (%)</label>
-                      <input type="number" name="yieldPercent" defaultValue={editingInvestment?.yield_percent || ''} required placeholder="Ex: 15" />
+                      <label className="text-sm text-muted">Valor Máximo (R$)</label>
+                      <input type="number" name="maxAmount" defaultValue={editingInvestment?.max_amount || ''} required placeholder="Ex: 5000" />
                     </div>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-sm text-muted">Montante Final (R$)</label>
-                    <input type="number" name="finalAmount" defaultValue={editingInvestment?.final_amount || ''} required placeholder="Ex: 650" />
                   </div>
                   <button type="submit" className="primary-btn w-full justify-center text-lg mt-4">
                     {editingInvestment ? 'Salvar Alterações' : 'Salvar Investimento'}
@@ -854,7 +867,7 @@ const App = () => {
                   <InvestmentCard 
                     key={inv.id} 
                     investment={inv} 
-                    onInvest={() => { setSelectedInvestment(inv); setInvestAmount(inv.cost); setModalType('investir'); }} 
+                    onInvest={() => { setSelectedInvestment(inv); setInvestAmount(inv.min_amount || inv.cost); setModalType('investir'); }} 
                     onEdit={isAdmin ? (() => { setEditingInvestment(inv); setActiveTab('investments'); }) : undefined}
                     onDelete={isAdmin ? (() => handleDeleteInvestment(inv.id)) : undefined}
                   />
@@ -1194,13 +1207,30 @@ const App = () => {
                 </div>
               )}
 
-              {modalType === 'investir' && (
+              {modalType === 'investir' && selectedInvestment && (
                 <div className="space-y-6">
                   <h3 className="outfit text-2xl text-center">Confirmar Aplicação</h3>
-                  <div className="bg-white/5 p-4 rounded-xl text-center">
-                    <p className="text-sm text-muted">Custo do Título</p>
-                    <p className="text-2xl font-bold text-amber-500">R$ {Number(investAmount).toLocaleString()}</p>
-                    <p className="text-xs text-muted mt-2">Saldo Disponível: R$ {profile?.balance?.toLocaleString()}</p>
+                  <div className="bg-white/5 p-6 rounded-xl text-center shadow-[0_0_20px_rgba(251,191,36,0.1)] border border-amber-500/10">
+                    <p className="text-sm text-muted mb-2">Qual valor você deseja aportar? (R$)</p>
+                    <input 
+                      type="number" 
+                      value={investAmount} 
+                      onChange={(e) => setInvestAmount(e.target.value)}
+                      className="text-4xl font-bold outfit text-amber-500 text-center bg-transparent border-b-2 border-amber-500/30 focus:border-amber-500 focus:outline-none w-full pb-2 transition-colors"
+                      placeholder={`Min: ${selectedInvestment.min_amount || selectedInvestment.cost}`}
+                      autoFocus
+                    />
+                    <div className="flex justify-between items-center text-xs text-muted mt-3">
+                      <span>Min: R$ {(selectedInvestment.min_amount || selectedInvestment.cost || 0).toLocaleString()}</span>
+                      <span>Max: R$ {(selectedInvestment.max_amount || 999999).toLocaleString()}</span>
+                    </div>
+                    
+                    <div className="mt-8 p-4 bg-green-500/10 rounded-xl border border-green-500/20">
+                      <p className="text-green-500/60 uppercase tracking-widest text-[10px] font-bold mb-1">Previsão Matemática de Retorno</p>
+                      <p className="text-2xl font-bold text-green-400">R$ {(Number(investAmount) * (1 + (selectedInvestment.yield_percent/100))).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
+                    </div>
+                    
+                    <p className="text-xs text-muted mt-6">Saldo em Nuvem: R$ {profile?.balance?.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
                   </div>
                   
                   {profile?.balance < Number(investAmount) && (
@@ -1610,10 +1640,10 @@ const InvestmentCard = ({ investment, onInvest, onSacar, onDelete, onEdit }) => 
       <div className="mb-6 flex-1">
         <h4 className={`outfit text-xl mb-4 font-bold ${getTierColor(investment.validity)}`}>{getPlanName(investment.validity)}</h4>
         <div className="space-y-3">
-          <div className="flex justify-between text-sm"><span className="text-muted">Custo</span><span className="font-bold">R$ {investment.cost.toLocaleString()}</span></div>
+          <div className="flex justify-between text-sm"><span className="text-muted">Aporte</span><span className="font-bold">{(investment.min_amount || investment.cost || 0).toLocaleString()} a {(investment.max_amount || 99999).toLocaleString()}</span></div>
           <div className="flex justify-between text-sm"><span className="text-muted">Validade</span><span className="font-bold">{investment.validity} dias</span></div>
-          <div className="flex justify-between text-sm"><span className="text-muted">Rendimento</span><span className="text-green-400 font-bold">+{investment.yield_percent}%</span></div>
-          <div className="flex justify-between text-lg mt-4 pt-4 border-t border-white/5"><span className="font-semibold outfit">Retorno</span><span className="text-amber-400 font-bold">R$ {investment.final_amount.toLocaleString()}</span></div>
+          <div className="flex justify-between text-sm"><span className="text-muted">Rendimento Líquido</span><span className="text-green-400 font-bold">+{investment.yield_percent}%</span></div>
+          <div className="flex justify-between text-lg mt-4 pt-4 border-t border-white/5 items-center"><span className="font-semibold outfit text-sm text-muted">Exemplo Retorno</span><span className="text-amber-400 font-bold text-sm">Aplica R$ 1 mil, Volta R$ {(1000 * (1 + investment.yield_percent/100)).toLocaleString()}</span></div>
         </div>
       </div>
       
