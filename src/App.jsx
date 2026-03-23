@@ -148,6 +148,43 @@ const LandingPage = ({ onGetStarted }) => {
   );
 };
 
+const generatePixPayload = (valor) => {
+  const chave = "09551040848";
+  const formatStr = (id, value) => {
+    const len = value.length.toString().padStart(2, '0');
+    return id + len + value;
+  };
+  
+  let payload = "000201010212";
+  const gui = formatStr("00", "br.gov.bcb.pix");
+  const key = formatStr("01", chave);
+  payload += formatStr("26", gui + key);
+  payload += "520400005303986";
+  
+  if (valor && Number(valor) > 0) {
+    payload += formatStr("54", Number(valor).toFixed(2));
+  }
+  
+  payload += "5802BR" + formatStr("59", "Girafa Tech") + formatStr("60", "SAO PAULO");
+  const txId = formatStr("05", "***");
+  payload += formatStr("62", txId);
+  payload += "6304";
+  
+  let crc = 0xFFFF;
+  for (let i = 0; i < payload.length; i++) {
+    crc ^= payload.charCodeAt(i) << 8;
+    for (let j = 0; j < 8; j++) {
+      if ((crc & 0x8000) !== 0) {
+        crc = (crc << 1) ^ 0x1021;
+      } else {
+        crc = crc << 1;
+      }
+    }
+  }
+  const crcHex = (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+  return payload + crcHex;
+};
+
 const App = () => {
   const [session, setSession] = useState(null);
   const [user, setUser] = useState(null);
@@ -1126,11 +1163,33 @@ const App = () => {
                   <h3 className="outfit text-2xl">Depositar via Pix</h3>
                   {pixStatus === 'idle' ? (
                     <>
-                      <input type="number" value={pixAmount} onChange={(e) => setPixAmount(e.target.value)} placeholder="Valor (R$)" autoFocus />
-                      <div className="bg-white p-4 rounded-2xl mx-auto w-48 h-48"><img src="/qr.png" className="w-full h-full object-contain" /></div>
-                      <button onClick={handleReceivePix} className="primary-btn w-full justify-center">Confirmar Pagamento</button>
+                      <input type="number" value={pixAmount} onChange={(e) => setPixAmount(e.target.value)} placeholder="Valor do Depósito (R$)" autoFocus />
+                      
+                      {pixAmount > 0 ? (
+                        <div className="space-y-4">
+                          <div className="bg-white p-4 rounded-2xl mx-auto w-48 h-48 relative overflow-hidden">
+                            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(generatePixPayload(pixAmount))}`} className="w-full h-full object-contain" />
+                          </div>
+                          <div className="bg-white/5 p-4 rounded-xl">
+                            <p className="text-xs text-muted mb-2">Pix Copia e Cola (Chave: 09551040848)</p>
+                            <input type="text" readOnly value={generatePixPayload(pixAmount)} className="w-full text-[10px] font-mono bg-black/50 overflow-hidden text-ellipsis mb-2 p-2 rounded" />
+                            <button onClick={() => {
+                              navigator.clipboard.writeText(generatePixPayload(pixAmount));
+                              showNotification('Pix Copia e Cola copiado!');
+                            }} className="btn-outline w-full py-2 text-xs font-bold border-amber-500/30 text-amber-500 hover:bg-amber-500 hover:text-black mt-2">
+                              Copiar Código Pix
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="bg-white/5 p-8 rounded-2xl border border-white/5 text-muted text-sm my-6">
+                          Digite o valor acima para gerar seu QR Code de pagamento.
+                        </div>
+                      )}
+
+                      <button onClick={handleReceivePix} disabled={!pixAmount || pixAmount <= 0} className="primary-btn w-full justify-center disabled:opacity-50 disabled:cursor-not-allowed">Já realizei o Pagamento</button>
                     </>
-                  ) : <div className="py-12"><Loader2 className="animate-spin mx-auto text-amber-500 mb-4" /> Verificando nuvem...</div>}
+                  ) : <div className="py-12"><Loader2 className="animate-spin mx-auto text-amber-500 mb-4" /> Verificando compensação no sistema...</div>}
                 </div>
               )}
 
