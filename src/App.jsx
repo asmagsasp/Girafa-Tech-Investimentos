@@ -405,22 +405,14 @@ const App = () => {
   };
 
   const handleDeleteInvestment = async (id) => {
-    console.log('Iniciando arquivamento do ID:', id);
-    
-    const { data: updatedData, error } = await supabase
-      .from('investment_options')
-      .update({ is_active: false })
-      .eq('id', id)
-      .select();
-
-    if (error) {
-      window.alert('🚨 ERRO NO BANCO: ' + error.message);
-      console.error('Delete Error:', error);
-    } else if (!updatedData || updatedData.length === 0) {
-      window.alert('⚠️ AVISO: O banco retornou que NADA foi alterado. O ID do plano pode estar incorreto ou o RLS bloqueou a alteração sem avisar erro direto.');
-    } else {
-      window.alert('✅ SUCESSO! O banco confirmou o arquivamento do plano. Removendo da sua tela...');
-      setAvailableInvestments(prev => prev.filter(inv => inv.id !== id));
+    if (window.confirm('Arquivar este plano de investimento? Ele não será mais exibido para novos aportes.')) {
+      const { error } = await supabase.from('investment_options').update({ is_active: false }).eq('id', id);
+      if (error) {
+        showNotification('Erro ao remover: ' + error.message, 'error');
+      } else {
+        setAvailableInvestments(prev => prev.filter(inv => inv.id !== id));
+        showNotification('Investimento removido com sucesso.');
+      }
     }
   };
 
@@ -784,12 +776,6 @@ const App = () => {
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 animate-in">
           <div>
             <h2 className="text-3xl font-bold outfit mb-1 text-white">Olá Investidor, {profile?.full_name?.split(' ')[0] || ''}</h2>
-            {isAdmin && (
-              <div className="flex gap-2 items-center">
-                <span className="text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-widest animate-pulse">Modo Admin Ativo</span>
-                <button onClick={() => window.alert('SITE ESTÁ VIVO E RECEBENDO CLIQUES!')} className="bg-white text-black px-2 py-0.5 rounded text-[10px] font-bold">TESTAR CLIQUES GERAIS</button>
-              </div>
-            )}
             <p className="text-muted">Gestão inteligente do seu capital em nuvem.</p>
           </div>
           <div className="flex gap-4 w-full md:w-auto overflow-x-auto pb-4 md:pb-0">
@@ -1615,7 +1601,7 @@ const AuthView = ({ onNotify }) => {
 
         {/* Debug Info para o Abel verificar a Chave */}
         <div className="mt-10 pt-4 border-t border-white/5 text-[8px] text-muted/30 font-mono text-center uppercase tracking-widest">
-          Debug: {import.meta.env.VITE_SUPABASE_ANON_KEY?.substring(0, 5)}...{import.meta.env.VITE_SUPABASE_ANON_KEY?.slice(-4)} | v1.0.10-ADMIN-POWER
+           v1.1.0-STABLE
         </div>
       </motion.div>
     </div>
@@ -1648,33 +1634,21 @@ const InvestmentCard = ({ investment, onInvest, onSacar, onDelete, onEdit, isAdm
   return (
     <div className="glass-card p-6 flex flex-col h-full border-2 border-white/5">
       <div className="flex flex-col gap-4 mb-6">
-        <div className="flex gap-4">
+        <div className="flex gap-2">
           <div className="bg-white/10 p-3 rounded-2xl">
             <TierIcon className={getTierColor(investment.validity)} />
           </div>
+          {isAdmin && onEdit && (
+            <button onClick={(e) => { e.stopPropagation(); onEdit(); }} className="bg-amber-500/10 p-3 rounded-2xl text-amber-500 border-none cursor-pointer hover:bg-amber-500/30">
+              <Pencil size={20} />
+            </button>
+          )}
+          {isAdmin && onDelete && (
+            <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="bg-red-500/10 p-3 rounded-2xl text-red-400 border-none cursor-pointer hover:bg-red-500/30">
+              <Trash2 size={20} />
+            </button>
+          )}
         </div>
-
-        {isAdmin && (
-          <div className="flex flex-col gap-2 relative mt-4" style={{ zIndex: 9999 }}>
-            <button 
-              onClick={(e) => { 
-                e.preventDefault(); 
-                e.stopPropagation();
-                window.alert('BOTÃO DE LIXEIRA ACIONADO! ID: ' + investment.id); 
-                onDelete(); 
-              }} 
-              className="w-full bg-red-600 text-white py-3 rounded-xl font-bold text-xs cursor-pointer active:scale-95 shadow-lg border-2 border-white"
-            >
-              ⚠️ APAGAR ESTE PLANO ⚠️
-            </button>
-            <button 
-              onClick={(e) => { e.stopPropagation(); onEdit(); }}
-              className="w-full bg-amber-500/10 text-amber-500 py-2 rounded-xl font-bold text-[10px] border border-amber-500/20"
-            >
-              EDITAR VALORES
-            </button>
-          </div>
-        )}
       </div>
       
       <div className="mb-6 flex-1">
