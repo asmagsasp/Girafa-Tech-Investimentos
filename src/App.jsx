@@ -482,16 +482,20 @@ const App = () => {
     const minVal = Number(formData.get('minAmount'));
     const maxVal = Number(formData.get('maxAmount'));
     
+    const isDaily = formData.get('isDailyDeal') === 'on';
     const invData = {
       validity: Number(formData.get('validity')),
-      cost: minVal, // fallback p/ db legado caso falte
+      cost: minVal, 
       min_amount: minVal,
       max_amount: maxVal,
       fee: 5,
       yield_percent: Number(formData.get('yieldPercent')),
       final_amount: 0, 
       is_active: true,
-      created_by: user.id
+      created_by: user.id,
+      is_daily_deal: isDaily,
+      deal_start_at: isDaily ? formData.get('dealStart') : null,
+      deal_end_at: isDaily ? formData.get('dealEnd') : null
     };
 
     if (editingInvestment) {
@@ -993,6 +997,22 @@ const App = () => {
                       <input type="number" name="maxAmount" defaultValue={editingInvestment?.max_amount || ''} required placeholder="Ex: 5000" />
                     </div>
                   </div>
+                  <div className="flex items-center gap-3 p-4 bg-white/5 rounded-2xl border border-white/5">
+                    <input type="checkbox" id="isDailyDeal" name="isDailyDeal" defaultChecked={editingInvestment?.is_daily_deal} className="w-5 h-5 accent-amber-500" />
+                    <label htmlFor="isDailyDeal" className="font-bold cursor-pointer">Oportunidade do Dia (Ativar Agendamento)</label>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="flex flex-col gap-2">
+                       <label className="text-sm text-muted">Início da Oferta</label>
+                       <input type="datetime-local" name="dealStart" defaultValue={editingInvestment?.deal_start_at ? new Date(editingInvestment.deal_start_at).toISOString().slice(0, 16) : ''} />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                       <label className="text-sm text-muted">Fim da Oferta</label>
+                       <input type="datetime-local" name="dealEnd" defaultValue={editingInvestment?.deal_end_at ? new Date(editingInvestment.deal_end_at).toISOString().slice(0, 16) : ''} />
+                    </div>
+                  </div>
+
                   <button type="submit" className="primary-btn w-full justify-center text-lg mt-4">
                     {editingInvestment ? 'Salvar Alterações' : 'Salvar Investimento'}
                   </button>
@@ -1740,8 +1760,35 @@ const AuthView = ({ onNotify }) => {
   );
 };
 
-const InvestmentCard = ({ investment, onInvest, onSacar, onDelete, onEdit, isAdmin }) => {
+const InvestmentCard = ({ investment, onInvest, onEdit, onDelete, isAdmin }) => {
+  const [timeLeft, setTimeLeft] = useState('');
+  const isExpired = investment.is_daily_deal && new Date() > new Date(investment.deal_end_at);
+  const isUpcoming = investment.is_daily_deal && (new Date() < new Date(investment.deal_start_at));
+  const isActiveDeal = investment.is_daily_deal && !isExpired && !isUpcoming;
+
+  useEffect(() => {
+    if (!investment.is_daily_deal) return;
+    
+    const timer = setInterval(() => {
+      const now = new Date().getTime();
+      const end = new Date(investment.deal_end_at).getTime();
+      const dist = end - now;
+
+      if (dist < 0) {
+        setTimeLeft('EXPIRADO');
+        clearInterval(timer);
+      } else {
+        const h = Math.floor((dist % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const m = Math.floor((dist % (1000 * 60 * 60)) / (1000 * 60));
+        const s = Math.floor((dist % (1000 * 60)) / 1000);
+        setTimeLeft(`${h}h ${m}m ${s}s`);
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [investment]);
+
   const getPlanName = (validity) => {
+    if (investment.is_daily_deal) return '🔥 Oportunidade do Dia';
     switch (Number(validity)) {
       case 3: return '🥉 Projeto Bronze';
       case 7: return '🥈 Projeto Prata';
@@ -1752,6 +1799,7 @@ const InvestmentCard = ({ investment, onInvest, onSacar, onDelete, onEdit, isAdm
   };
 
   const getTierColor = (validity) => {
+    if (investment.is_daily_deal) return 'text-amber-500';
     switch (Number(validity)) {
       case 3: return 'text-orange-400';
       case 7: return 'text-slate-300';
@@ -1761,13 +1809,31 @@ const InvestmentCard = ({ investment, onInvest, onSacar, onDelete, onEdit, isAdm
     }
   };
 
-  const TierIcon = Number(investment.validity) === 30 ? Gem : (Number(investment.validity) === 3 || Number(investment.validity) === 7 || Number(investment.validity) === 15 ? Coins : TrendingUp);
+  const TierIcon = investment.is_daily_deal ? Sparkles : (Number(investment.validity) === 30 ? Gem : (Number(investment.validity) === 3 || Number(investment.validity) === 7 || Number(investment.validity) === 15 ? Coins : TrendingUp));
 
   return (
-    <div className="glass-card p-6 flex flex-col h-full border-2 border-white/5">
-      <div className="flex flex-col gap-4 mb-6">
+    <div className={`glass-card p-6 flex flex-col h-full relative overflow-hidden transition-all duration-500 ${isActiveDeal ? 'border-amber-500 shadow-[0_0_25px_rgba(251,191,36,0.3)]' : 'border-2 border-white/5'}`}>
+      {isActiveDeal && (
+        <div className="absolute top-0 left-0 w-full bg-amber-500 text-black text-[10px] font-black uppercase text-center py-1 tracking-widest flex items-center justify-center gap-2 z-10">
+           <Clock size={12} /> Expira em: {timeLeft}
+        </div>
+      )}
+      
+      {isUpcoming && (
+        <div className="absolute top-0 left-0 w-full bg-blue-600 text-white text-[10px] font-black uppercase text-center py-1 tracking-widest z-10">
+           Próxima Oferta: {new Date(investment.deal_start_at).toLocaleString()}
+        </div>
+      )}
+
+      {isExpired && (
+        <div className="absolute top-0 left-0 w-full bg-red-600/50 text-white text-[10px] font-black uppercase text-center py-1 tracking-widest z-10">
+           Oferta Encerrada
+        </div>
+      )}
+
+      <div className={`flex flex-col gap-4 mb-6 ${isActiveDeal || isUpcoming || isExpired ? 'mt-4' : ''}`}>
         <div className="flex gap-2">
-          <div className="bg-white/10 p-3 rounded-2xl">
+          <div className={`p-3 rounded-2xl ${isActiveDeal ? 'bg-amber-500/20' : 'bg-white/10'}`}>
             <TierIcon className={getTierColor(investment.validity)} />
           </div>
           {isAdmin && onEdit && (
@@ -1794,8 +1860,11 @@ const InvestmentCard = ({ investment, onInvest, onSacar, onDelete, onEdit, isAdm
       </div>
       
       {onInvest && (
-        <button onClick={() => onInvest(investment)} className="primary-btn w-full justify-center text-base py-3 font-bold mt-4">
-          Investir agora
+        <button 
+          onClick={() => onInvest(investment)} 
+          disabled={isUpcoming || isExpired}
+          className={`primary-btn w-full justify-center text-base py-3 font-bold mt-4 ${isActiveDeal ? 'animate-pulse' : ''}`}>
+          {isUpcoming ? 'Aguardando Início' : isExpired ? 'Oferta Encerrada' : 'Investir agora'}
         </button>
       )}
     </div>
