@@ -160,6 +160,9 @@ const App = () => {
   // Data States
   const [availableInvestments, setAvailableInvestments] = useState([]);
   const [myInvestments, setMyInvestments] = useState([]);
+  const [loans, setLoans] = useState([]);
+  const [adminData, setAdminData] = useState({ profiles: [], loans: [], allInvestments: [] });
+  const [referralLink, setReferralLink] = useState('');
   
   // Modal & Form States
   const [modalType, setModalType] = useState(null);
@@ -219,6 +222,11 @@ const App = () => {
       }
     });
 
+    // Catch Referral
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get('ref');
+    if (ref) localStorage.setItem('girafa_ref', ref);
+
     return () => subscription.unsubscribe();
   }, []);
 
@@ -252,6 +260,21 @@ const App = () => {
       
       if (userInvErr) throw userInvErr;
       setMyInvestments(userInvs);
+
+      // Fetch User Loans
+      const { data: userLoans } = await supabase.from('loans').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+      setLoans(userLoans || []);
+
+      setReferralLink(`${window.location.origin}/?ref=${userId}`);
+
+      // Fetch Admin Data
+      const adminEmails = ['admin@girafatech.com', 'abel@girafatech.com', 'abel.souza.magalhaes@hotmail.com'];
+      if (adminEmails.includes(prof?.email)) {
+         const { data: allP } = await supabase.from('profiles').select('*');
+         const { data: allL } = await supabase.from('loans').select('*').order('created_at', { ascending: false });
+         const { data: allI } = await supabase.from('user_investments').select('*').order('invested_at', { ascending: false });
+         setAdminData({ profiles: allP || [], loans: allL || [], allInvestments: allI || [] });
+      }
 
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -472,6 +495,18 @@ const App = () => {
             setPixStatus('idle');
           } else {
             setProfile({ ...profile, balance: newBal });
+            
+            // Affiliate Bonus (5% deposit matches)
+            if (profile?.referred_by) {
+               try {
+                 const bonus = extra * 0.05;
+                 const { data: refProf } = await supabase.from('profiles').select('balance').eq('id', profile.referred_by).single();
+                 if (refProf) {
+                   await supabase.from('profiles').update({ balance: Number(refProf.balance) + bonus }).eq('id', profile.referred_by);
+                 }
+               } catch(e) { console.error('Error adding referral bonus', e); }
+            }
+
             setPixStatus('confirmed');
             showNotification(`Pix de R$ ${extra.toFixed(2)} compensado!`);
             setTimeout(() => { 
@@ -488,6 +523,48 @@ const App = () => {
     } catch (err) {
       console.error('Error in handleReceivePix:', err);
       setPixStatus('idle');
+    }
+  };
+
+  const handleRequestLoan = async (amount, installments) => {
+    if (!amount || amount <= 0) return showNotification('Valor inválido', 'error');
+    const monthly = (amount * Math.pow(1.05, installments)) / installments;
+    const total = monthly * installments;
+    
+    if (amount > 100000) return showNotification('O valor excede seu limite de crédito atual.', 'error');
+    
+    const { error } = await supabase.from('loans').insert([{
+      user_id: user.id,
+      amount,
+      installments,
+      monthly_payment: monthly,
+      total_payment: total,
+      status: 'Análise'
+    }]);
+    
+    if (error) {
+      console.error('Erro Empréstimo', error);
+      showNotification('Erro ao solicitar empréstimo!', 'error');
+    } else {
+      showNotification('Empréstimo solicitado! Nossa equipe analisará em breve.');
+      fetchUserData(user.id);
+    }
+  };
+
+  const handleAdminLoanAction = async (loanId, action, userId, amount) => {
+    try {
+      if (action === 'Aprovado') {
+         const borrower = adminData.profiles.find(p => p.id === userId);
+         if(borrower) {
+           await supabase.from('profiles').update({ balance: Number(borrower.balance) + Number(amount) }).eq('id', userId);
+         }
+      }
+      await supabase.from('loans').update({ status: action }).eq('id', loanId);
+      showNotification(`Empréstimo ${action}!`);
+      fetchUserData(user.id);
+    } catch(err) {
+      console.error('Admin Erro:', err);
+      showNotification('Erro interno.', 'error');
     }
   };
 
@@ -596,7 +673,10 @@ const App = () => {
           
           {isAdmin && (
             <>
-              <button onClick={() => setActiveTab('investments')} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'investments' ? 'active' : ''}`}>
+              <button onClick={() => { setActiveTab('admin_dash'); setShowLanding(false); }} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'admin_dash' ? 'active' : ''}`}>
+                <Shield size={20} /> Painel Admin
+              </button>
+              <button onClick={() => { setActiveTab('investments'); setShowLanding(false); }} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'investments' ? 'active' : ''}`}>
                 <PlusCircle size={20} /> Criar Investimento
               </button>
             </>
@@ -870,12 +950,135 @@ const App = () => {
                         </div>
                       </div>
 
-                      <button className="primary-btn w-full justify-center py-3 font-bold group-hover:shadow-[0_0_15px_rgba(251,191,36,0.3)] transition-all">
+                      <button 
+                        onClick={() => handleRequestLoan(val, 5)}
+                        className="primary-btn w-full justify-center py-3 font-bold group-hover:shadow-[0_0_15px_rgba(251,191,36,0.3)] transition-all"
+                      >
                         Pegar emprestado com juros
                       </button>
                     </div>
                   );
                 })}
+              </div>
+              
+              {loans.length > 0 && (
+                <div className="glass-card p-8 mt-8">
+                  <h3 className="outfit text-xl mb-6">Meus Pedidos de Crédito</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-sm">
+                      <thead>
+                        <tr className="border-b border-white/10 text-muted uppercase">
+                          <th className="py-3 px-4">Solicitado em</th>
+                          <th className="py-3 px-4">Valor</th>
+                          <th className="py-3 px-4">Parcelas</th>
+                          <th className="py-3 px-4">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {loans.map(loan => (
+                          <tr key={loan.id} className="border-b border-white/5">
+                            <td className="py-3 px-4">{new Date(loan.created_at).toLocaleDateString()}</td>
+                            <td className="py-3 px-4 text-amber-500 font-bold">R$ {Number(loan.amount).toFixed(2)}</td>
+                            <td className="py-3 px-4">{loan.installments}x de R$ {Number(loan.monthly_payment).toFixed(2)}</td>
+                            <td className="py-3 px-4">
+                              <span className={`px-2 py-1 rounded-full text-[10px] uppercase font-bold 
+                                ${loan.status === 'Aprovado' ? 'bg-green-500/10 text-green-500' : 
+                                  loan.status === 'Rejeitado' ? 'bg-red-500/10 text-red-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                                {loan.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {activeTab === 'admin_dash' && isAdmin && (
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-8">
+              <header className="mb-8">
+                <h3 className="outfit text-3xl font-bold gradient-text">Visão Geral Executiva</h3>
+                <p className="text-muted">Desempenho da plataforma e gestão de liquidez.</p>
+              </header>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="glass-card p-6 border-blue-500/20">
+                  <h4 className="text-muted text-sm uppercase tracking-widest mb-2 font-bold opacity-70">Total Captado</h4>
+                  <div className="text-3xl font-bold outfit text-blue-400">
+                    R$ {adminData.allInvestments.reduce((acc, inv) => acc + Number(inv.invested_amount), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </div>
+                  <p className="text-xs text-muted mt-2">{adminData.allInvestments.length} ativos em nuvem</p>
+                </div>
+                <div className="glass-card p-6 border-amber-500/20">
+                  <h4 className="text-muted text-sm uppercase tracking-widest mb-2 font-bold opacity-70">Crédito Concedido</h4>
+                  <div className="text-3xl font-bold outfit text-amber-500">
+                    R$ {adminData.loans.filter(l => l.status === 'Aprovado').reduce((acc, l) => acc + Number(l.amount), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </div>
+                  <p className="text-xs text-muted mt-2">{adminData.loans.filter(l => l.status === 'Aprovado').length} empréstimos ativos</p>
+                </div>
+                <div className="glass-card p-6 border-purple-500/20">
+                  <h4 className="text-muted text-sm uppercase tracking-widest mb-2 font-bold opacity-70">Base de Clientes</h4>
+                  <div className="text-3xl font-bold outfit text-purple-400">
+                    {adminData.profiles.length} <span className="text-lg text-muted">Investidores</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Pending Loans Table */}
+                <div className="glass-card p-6">
+                  <h4 className="outfit text-xl mb-4 text-amber-500">Análise de Crédito</h4>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead>
+                        <tr className="border-b border-white/10 text-muted uppercase text-[10px]">
+                          <th className="py-2">Cliente</th>
+                          <th className="py-2">Valor</th>
+                          <th className="py-2 text-right">Ação</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {adminData.loans.filter(l => l.status === 'Análise').length === 0 && (
+                          <tr><td colSpan="3" className="py-4 text-center text-muted">Nenhum pedido pendente</td></tr>
+                        )}
+                        {adminData.loans.filter(l => l.status === 'Análise').map(loan => {
+                          const user = adminData.profiles.find(p => p.id === loan.user_id);
+                          return (
+                            <tr key={loan.id} className="border-b border-white/5">
+                              <td className="py-3">{user?.full_name?.split(' ')[0] || 'Desconhecido'}</td>
+                              <td className="py-3 font-bold text-amber-500">R$ {Number(loan.amount).toLocaleString()}</td>
+                              <td className="py-3 text-right space-x-2 flex justify-end">
+                                <button onClick={() => handleAdminLoanAction(loan.id, 'Aprovado', loan.user_id, loan.amount)} className="bg-green-500/20 text-green-400 p-2 rounded-lg hover:bg-green-500/50 transition-colors"><CheckCircle2 size={16} /></button>
+                                <button onClick={() => handleAdminLoanAction(loan.id, 'Rejeitado', loan.user_id, loan.amount)} className="bg-red-500/20 text-red-400 p-2 rounded-lg hover:bg-red-500/50 transition-colors"><X size={16} /></button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Users List */}
+                <div className="glass-card p-6">
+                  <h4 className="outfit text-xl mb-4 text-blue-400">Diretório de Investidores</h4>
+                  <div className="overflow-y-auto max-h-[300px] pr-2">
+                    {adminData.profiles.map(p => (
+                      <div key={p.id} className="flex justify-between items-center py-3 border-b border-white/5 last:border-0">
+                        <div>
+                          <p className="font-bold">{p.full_name || 'Sem Nome'}</p>
+                          <p className="text-xs text-muted font-mono">{p.pix_key || 'Sem Pix'}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-amber-500 font-bold">R$ {Number(p.balance).toLocaleString()}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </motion.div>
           )}
@@ -890,18 +1093,32 @@ const App = () => {
               <button onClick={() => setModalType(null)} className="absolute top-4 right-4 text-muted hover:text-white border-none bg-transparent cursor-pointer"><X size={24} /></button>
               
               {modalType === 'profile' && (
-                <form onSubmit={handleUpdateProfile} className="space-y-6">
-                  <h3 className="outfit text-2xl">Meu Cadastro Cloud</h3>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-sm text-muted">Nome Completo</label>
-                    <input type="text" name="full_name" defaultValue={profile?.full_name || ''} required />
+                <div className="space-y-6">
+                  <form onSubmit={handleUpdateProfile} className="space-y-6">
+                    <h3 className="outfit text-2xl">Meu Cadastro Cloud</h3>
+                    <div className="flex flex-col gap-2">
+                      <label className="text-sm text-muted">Nome Completo</label>
+                      <input type="text" name="full_name" defaultValue={profile?.full_name || ''} required />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <label className="text-sm text-muted">Chave Pix</label>
+                      <input type="text" name="pix_key" defaultValue={profile?.pix_key || ''} required />
+                    </div>
+                    <button type="submit" className="primary-btn w-full justify-center">Salvar Perfil</button>
+                  </form>
+                  
+                  <div className="pt-6 border-t border-white/10">
+                    <h4 className="outfit text-lg mb-2 text-amber-500 flex items-center gap-2"><Sparkles size={18}/> Girafa Afiliados</h4>
+                    <p className="text-xs text-muted mb-4">Ganhe 5% instantâneo sempre que um amigo se cadastrar com seu link e fizer um Pix para a plataforma!</p>
+                    <div className="flex gap-2">
+                      <input type="url" readOnly value={referralLink} className="w-full text-xs font-mono bg-black/50 overflow-hidden text-ellipsis" />
+                      <button onClick={() => {
+                        navigator.clipboard.writeText(referralLink);
+                        showNotification('Link copiado!');
+                      }} className="btn-outline px-4 flex-shrink-0">Copiar</button>
+                    </div>
                   </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-sm text-muted">Chave Pix</label>
-                    <input type="text" name="pix_key" defaultValue={profile?.pix_key || ''} required />
-                  </div>
-                  <button type="submit" className="primary-btn w-full justify-center">Salvar Perfil</button>
-                </form>
+                </div>
               )}
 
               {modalType === 'pix_receive' && (
@@ -1116,17 +1333,14 @@ const AuthView = ({ onNotify }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('FORM SUBMITTED', { isLogin, email, phone, fullName, passwordLength: password.length });
     setLoading(true);
     try {
       if (!email || !password || (!isLogin && (!fullName || !phone))) {
         throw new Error('Todos os campos são obrigatórios!');
       }
       if (isLogin) {
-        console.log('Tentando Login...');
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
-          console.error('Erro de Login:', error);
           const msg = error.message.toLowerCase();
           if (msg.includes('confirm') || (error.status === 400 && msg.includes('not confirmed'))) {
              setShowResend(true);
@@ -1134,9 +1348,7 @@ const AuthView = ({ onNotify }) => {
           }
           throw error;
         }
-        console.log('Login OK!', data);
       } else {
-        console.log('Tentando Cadastro...');
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -1146,22 +1358,25 @@ const AuthView = ({ onNotify }) => {
           }
         });
         if (error) {
-          console.error('ERRO DE CADASTRO:', error);
           const msg = error.message.toLowerCase();
-          if (msg.includes('rate limit')) {
-            alert('🚨 SUPABASE: Limite de tentativas atingido. Aguarde 1 hora ou troque o e-mail de teste.');
-          } else if (msg.includes('already registered')) {
-            alert('⚠️ AVISO: Este e-mail já está cadastrado. Tente fazer login!');
-          } else if (error.status === 401) {
-            alert('🔑 ERRO CRÍTICO (401): Suas chaves de ambiente na Vercel são inválidas. Verifique o VITE_SUPABASE_ANON_KEY!');
-          } else {
-            alert('ERRO NO CADASTRO: ' + error.message);
-          }
+          if (msg.includes('rate limit')) alert('🚨 Limite de tentativas atingido.');
+          else if (msg.includes('already registered')) alert('⚠️ E-mail já cadastrado.');
+          else if (error.status === 401) alert('🔑 ERRO 401.');
+          else alert('ERRO NO CADASTRO: ' + error.message);
           throw error;
         }
-        console.log('Cadastro OK!', data);
-        onNotify('Verifique seu e-mail para confirmar o cadastro!');
-        alert('SUCESSO! Enviamos um link de ativação para: ' + email);
+        
+        // --- NOVO: Lógica de Afiliados (Bônus de Indicação) ---
+        const savedRef = localStorage.getItem('girafa_ref');
+        if (savedRef && data?.user?.id) {
+           try {
+             await supabase.from('profiles').update({ referred_by: savedRef }).eq('id', data.user.id);
+             localStorage.removeItem('girafa_ref');
+           } catch(e) { console.error('Afiliado Err', e); }
+        }
+
+        onNotify('Verifique seu e-mail para confirmar!');
+        alert('SUCESSO! Link de ativação enviado para: ' + email);
       }
     } catch (err) {
       console.error('CRITICAL AUTH ERROR:', err);
