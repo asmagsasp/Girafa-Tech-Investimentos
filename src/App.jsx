@@ -794,16 +794,16 @@ const App = () => {
                   <div className="bg-amber-500/10 w-12 h-12 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                     <ArrowDownLeft className="text-amber-500" />
                   </div>
-                  <h3 className="outfit text-xl mb-1">Receber Pix</h3>
-                  <p className="text-muted text-sm">Adicione saldo via nuvem instantaneamente.</p>
+                  <h3 className="outfit text-xl mb-1">Depositar</h3>
+                  <p className="text-muted text-sm">Adicione saldo na sua carteira Girafa Cloud.</p>
                 </div>
                 
-                <div onClick={() => setModalType('pix_send')} className="glass-card stat-card cursor-pointer hover:border-blue-500/50 group">
+                <div onClick={() => setActiveTab('my_investments')} className="glass-card stat-card cursor-pointer hover:border-blue-500/50 group">
                   <div className="bg-blue-500/10 w-12 h-12 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                     <SendHorizontal className="text-blue-500" />
                   </div>
-                  <h3 className="outfit text-xl mb-1">Enviar Pix</h3>
-                  <p className="text-muted text-sm">Transferência segura entre carteiras Girafa.</p>
+                  <h3 className="outfit text-xl mb-1">Sacar</h3>
+                  <p className="text-muted text-sm">Resgate seus lucros diretamente para a chave Pix.</p>
                 </div>
               </div>
 
