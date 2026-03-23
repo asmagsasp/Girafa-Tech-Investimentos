@@ -828,6 +828,7 @@ const App = () => {
                     <InvestmentCard 
                       key={inv.id} 
                       investment={inv} 
+                      isAdmin={isAdmin}
                       onInvest={() => { setSelectedInvestment(inv); setInvestAmount(inv.min_amount || inv.cost); setModalType('investir'); }} 
                       onEdit={isAdmin ? (() => { setEditingInvestment(inv); setActiveTab('investments'); }) : undefined}
                       onDelete={isAdmin ? (() => handleDeleteInvestment(inv.id)) : undefined}
@@ -887,6 +888,7 @@ const App = () => {
                   <InvestmentCard 
                     key={inv.id} 
                     investment={inv} 
+                    isAdmin={isAdmin}
                     onInvest={() => { setSelectedInvestment(inv); setInvestAmount(inv.min_amount || inv.cost); setModalType('investir'); }} 
                     onEdit={isAdmin ? (() => { setEditingInvestment(inv); setActiveTab('investments'); }) : undefined}
                     onDelete={isAdmin ? (() => handleDeleteInvestment(inv.id)) : undefined}
@@ -1616,7 +1618,7 @@ const AuthView = ({ onNotify }) => {
   );
 };
 
-const InvestmentCard = ({ investment, onInvest, onSacar, onDelete, onEdit }) => {
+const InvestmentCard = ({ investment, onInvest, onSacar, onDelete, onEdit, isAdmin }) => {
   const getPlanName = (validity) => {
     switch (Number(validity)) {
       case 3: return '🥉 Projeto Bronze';
@@ -1649,20 +1651,21 @@ const InvestmentCard = ({ investment, onInvest, onSacar, onDelete, onEdit }) => 
         </div>
 
         {isAdmin && (
-          <div className="flex flex-col gap-2 relative" style={{ zIndex: 9999 }}>
+          <div className="flex flex-col gap-2 relative mt-4" style={{ zIndex: 9999 }}>
             <button 
-              onPointerDown={(e) => { 
+              onClick={(e) => { 
                 e.preventDefault(); 
-                window.alert('POINTER DOWN DETECTADO NA LIXEIRA!'); 
+                e.stopPropagation();
+                window.alert('BOTÃO DE LIXEIRA ACIONADO! ID: ' + investment.id); 
                 onDelete(); 
               }} 
-              className="w-full bg-red-600 text-white py-4 rounded-xl font-black text-xs cursor-pointer active:scale-95 shadow-[0_0_15px_rgba(220,38,38,0.5)] border-4 border-white"
+              className="w-full bg-red-600 text-white py-3 rounded-xl font-bold text-xs cursor-pointer active:scale-95 shadow-lg border-2 border-white"
             >
-              ⚠️ APAGAR ESTE PLANO (TOQUE AQUI) ⚠️
+              ⚠️ APAGAR ESTE PLANO ⚠️
             </button>
             <button 
-              onClick={() => onEdit()}
-              className="w-full bg-amber-500/20 text-amber-500 py-2 rounded-xl font-bold text-[10px] border border-amber-500/50"
+              onClick={(e) => { e.stopPropagation(); onEdit(); }}
+              className="w-full bg-amber-500/10 text-amber-500 py-2 rounded-xl font-bold text-[10px] border border-amber-500/20"
             >
               EDITAR VALORES
             </button>
