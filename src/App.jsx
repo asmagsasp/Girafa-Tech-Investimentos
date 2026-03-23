@@ -218,11 +218,15 @@ const App = () => {
       if (sess) {
         setSession(sess);
         setUser(sess.user);
-        setIsAdmin(
-          sess.user.email === 'admin@girafatech.com' || 
-          sess.user.email === 'abel@girafatech.com' || 
-          sess.user.email === 'abel.souza.magalhaes@hotmail.com'
-        );
+        if (sess?.user?.email) {
+          const userMail = sess.user.email.toLowerCase();
+          console.log('Login Detectado:', userMail);
+          setIsAdmin(
+            userMail === 'admin@girafatech.com' || 
+            userMail === 'abel@girafatech.com' || 
+            userMail === 'abel.souza.magalhaes@hotmail.com'
+          );
+        }
         fetchUserData(sess.user.id);
       } else {
         setLoading(false);
@@ -401,6 +405,7 @@ const App = () => {
   };
 
   const handleDeleteInvestment = async (id) => {
+    window.alert('INICIANDO PROCESSO DE EXCLUSÃO NO BANCO: ' + id);
     console.log('Tentativa de Deletar/Arquivar ID:', id);
     if (window.confirm('Arquivar este plano de investimento? Futuros aportes nele serão bloqueados.')) {
       const { error } = await supabase.from('investment_options').update({ is_active: false }).eq('id', id);
@@ -1599,7 +1604,7 @@ const AuthView = ({ onNotify }) => {
 
         {/* Debug Info para o Abel verificar a Chave */}
         <div className="mt-10 pt-4 border-t border-white/5 text-[8px] text-muted/30 font-mono text-center uppercase tracking-widest">
-          Debug: {import.meta.env.VITE_SUPABASE_ANON_KEY?.substring(0, 5)}...{import.meta.env.VITE_SUPABASE_ANON_KEY?.slice(-4)} | v1.0.8
+          Debug: {import.meta.env.VITE_SUPABASE_ANON_KEY?.substring(0, 5)}...{import.meta.env.VITE_SUPABASE_ANON_KEY?.slice(-4)} | v1.0.10-ADMIN-POWER
         </div>
       </motion.div>
     </div>
