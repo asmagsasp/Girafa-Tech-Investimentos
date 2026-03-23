@@ -286,7 +286,7 @@ const App = () => {
       const { data: opts, error: optsErr } = await supabase
         .from('investment_options')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('validity', { ascending: true });
       
       if (optsErr) throw optsErr;
       setAvailableInvestments(opts);
@@ -377,7 +377,8 @@ const App = () => {
       
       if (error) showNotification('Erro ao atualizar investimento.', 'error');
       else {
-        setAvailableInvestments(availableInvestments.map(inv => inv.id === editingInvestment.id ? { ...inv, ...invData } : inv));
+        const updatedArr = availableInvestments.map(inv => inv.id === editingInvestment.id ? { ...inv, ...invData } : inv);
+        setAvailableInvestments(updatedArr.sort((a, b) => a.validity - b.validity));
         showNotification('Investimento atualizado!');
         setEditingInvestment(null);
       }
@@ -390,7 +391,8 @@ const App = () => {
       
       if (error) showNotification('Erro ao criar investimento.', 'error');
       else {
-        setAvailableInvestments([data, ...availableInvestments]);
+        const newArr = [data, ...availableInvestments];
+        setAvailableInvestments(newArr.sort((a, b) => a.validity - b.validity));
         showNotification('Investimento criado!');
       }
     }
