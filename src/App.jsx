@@ -184,22 +184,22 @@ const generatePixPayload = (valor) => {
 };
 
 const GiraluckySection = ({ profile, updateBalance, showNotification }) => {
-  const [reels, setReels] = useState(['🦒', '🦒', '🦒']);
+  const [reels, setReels] = useState(['🦒', '7', '🍓']);
   const [spinning, setSpinning] = useState(false);
   
-  const symbols = ['🦒', '💎', '🪙', '🦁', '🦓', '🎰'];
+  const symbols = ['🦒', '🍓', '7', '💎', '🪙', '🎰'];
   const GIRAFFE_IMG = '/slots-giraffe.png';
 
   const spin = async () => {
-    if (profile.balance < 50) {
-      showNotification('Saldo insuficiente para girar (Mínimo R$ 50,00)', 'error');
+    if (profile.balance < 5) {
+      showNotification('Saldo insuficiente para girar (Mínimo R$ 5,00)', 'error');
       return;
     }
     
     setSpinning(true);
     
-    // Deduct cost
-    const newBalancePre = profile.balance - 50;
+    // Deduct cost (R$ 5,00)
+    const newBalancePre = profile.balance - 5;
     const { error: dedErr } = await supabase.from('profiles').update({ balance: newBalancePre }).eq('id', profile.id);
     if (dedErr) {
       showNotification('Erro ao processar aposta.', 'error');
@@ -226,12 +226,26 @@ const GiraluckySection = ({ profile, updateBalance, showNotification }) => {
       setReels(finalResult);
       setSpinning(false);
 
-      if (finalResult.every(s => s === '🦒')) {
-        const winningBalance = newBalancePre * 2;
+      let prize = 0;
+      let winMsg = '';
+
+      if (finalResult.every(s => s === '7')) {
+        prize = 7;
+        winMsg = 'SORTE! Você ganhou R$ 7,00!';
+      } else if (finalResult.every(s => s === '🍓')) {
+        prize = 20;
+        winMsg = 'MUITO BOM! Você ganhou R$ 20,00!';
+      } else if (finalResult.every(s => s === '🦒')) {
+        prize = 100;
+        winMsg = 'JACKPOT!!! Você ganhou R$ 100,00!';
+      }
+
+      if (prize > 0) {
+        const winningBalance = newBalancePre + prize;
         const { error: winErr } = await supabase.from('profiles').update({ balance: winningBalance }).eq('id', profile.id);
         if (!winErr) {
           updateBalance(winningBalance);
-          showNotification('JACKPOT!!! SEU SALDO DOBROU!', 'success');
+          showNotification(winMsg, 'success');
         }
       } else {
         showNotification('Não foi dessa vez! Tente novamente.');
@@ -245,7 +259,7 @@ const GiraluckySection = ({ profile, updateBalance, showNotification }) => {
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-purple-500 to-transparent animate-pulse" />
         
         <h2 className="outfit text-5xl font-black mb-2 text-white italic tracking-tighter uppercase italic">GiraLucky 🎰</h2>
-        <p className="text-purple-400 text-sm font-bold uppercase tracking-[0.2em] mb-12">Dobre seu capital com o poder da Girafa!</p>
+        <p className="text-purple-400 text-sm font-bold uppercase tracking-[0.2em] mb-12">Teste sua sorte e ganhe prêmios instantâneos!</p>
 
         <div className="flex justify-center gap-6 mb-12">
           {reels.map((symbol, i) => (
@@ -270,12 +284,12 @@ const GiraluckySection = ({ profile, updateBalance, showNotification }) => {
               spinning ? 'bg-purple-900/50 text-purple-700 cursor-not-allowed' : 'secondary-btn hover:scale-105 active:scale-95 shadow-[0_0_40px_rgba(168,85,247,0.4)]'
             }`}
           >
-            {spinning ? 'Girando...' : 'GIRAR (R$ 50,00)'}
+            {spinning ? 'Girando...' : 'GIRAR (R$ 5,00)'}
           </button>
           
           <div className="flex items-center justify-center gap-2 text-muted text-xs">
             <Trophy size={14} className="text-amber-500" />
-            <span>Acerte <strong>3 Girafas</strong> para dobrar todo seu saldo instantaneamente!</span>
+            <span>Tabela de Prêmios: <strong>3x 🦒 = R$ 100</strong> | <strong>3x 🍓 = R$ 20</strong> | <strong>3x 7 = R$ 7</strong></span>
           </div>
         </div>
       </div>
@@ -292,14 +306,14 @@ const GiraluckySection = ({ profile, updateBalance, showNotification }) => {
           <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-2xl">💰</div>
           <div className="text-left">
             <p className="text-xs text-muted uppercase font-bold tracking-tighter">Custo por Giro</p>
-            <p className="text-sm font-bold">R$ 50,00 fixos</p>
+            <p className="text-sm font-bold">R$ 5,00 fixos</p>
           </div>
         </div>
         <div className="glass-card p-6 border-white/5 flex items-center gap-4">
           <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-2xl">🦒</div>
           <div className="text-left">
             <p className="text-xs text-muted uppercase font-bold tracking-tighter">Prêmio Máximo</p>
-            <p className="text-sm font-bold text-amber-500">Saldo 2X INFINITO</p>
+            <p className="text-sm font-bold text-amber-500">R$ 100,00 Instantâneos</p>
           </div>
         </div>
       </div>
