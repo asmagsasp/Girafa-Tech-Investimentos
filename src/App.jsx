@@ -38,7 +38,9 @@ import {
   Shield,
   BookOpen,
   Sparkles,
-  ChevronDown
+  ChevronDown,
+  Coins,
+  Gem
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from './lib/supabase';
@@ -1601,11 +1603,11 @@ const AuthView = ({ onNotify }) => {
 const InvestmentCard = ({ investment, onInvest, onSacar, onDelete, onEdit }) => {
   const getPlanName = (validity) => {
     switch (Number(validity)) {
-      case 3: return 'Projeto Bronze';
-      case 7: return 'Projeto Prata';
-      case 15: return 'Projeto Ouro';
-      case 30: return 'Projeto Diamante';
-      default: return `Projeto de ${validity} Dias`;
+      case 3: return '🪙 Projeto Bronze';
+      case 7: return '🪙 Projeto Prata';
+      case 15: return '🪙 Projeto Ouro';
+      case 30: return '💎 Projeto Diamante';
+      default: return `📈 Projeto de ${validity} Dias`;
     }
   };
 
@@ -1619,12 +1621,14 @@ const InvestmentCard = ({ investment, onInvest, onSacar, onDelete, onEdit }) => 
     }
   };
 
+  const TierIcon = Number(investment.validity) === 30 ? Gem : (Number(investment.validity) === 3 || Number(investment.validity) === 7 || Number(investment.validity) === 15 ? Coins : TrendingUp);
+
   return (
     <div className="glass-card p-6 flex flex-col h-full hover:shadow-[0_0_20px_rgba(251,191,36,0.2)]">
       <div className="flex justify-between items-start mb-6">
         <div className="flex gap-2">
           <div className="bg-white/10 p-3 rounded-2xl">
-            <TrendingUp className={getTierColor(investment.validity)} />
+            <TierIcon className={getTierColor(investment.validity)} />
           </div>
           {onEdit && (
             <button onClick={(e) => { e.stopPropagation(); onEdit(); }} className="bg-amber-500/10 p-3 rounded-2xl text-amber-500 border-none cursor-pointer hover:bg-amber-500/30">
