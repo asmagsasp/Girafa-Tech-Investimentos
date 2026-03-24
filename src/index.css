@@ -452,3 +452,47 @@ input:focus {
   .section-title { font-size: 2rem; }
   .project-grid { grid-template-columns: 1fr; }
 }
+/* Investment Teaser (Playing Card) */
+.investment-card-teaser {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-dark);
+  transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.playing-card-visual {
+  width: 80%;
+  height: 70%;
+  background-image: url('/playing-card.png');
+  background-size: cover;
+  background-position: center;
+  border-radius: 15px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(251, 191, 36, 0.2);
+  border: 4px solid rgba(251, 191, 36, 0.3);
+  position: relative;
+  transform: rotateY(0deg);
+  transition: transform 0.6s ease;
+}
+
+.investment-card-teaser:hover .playing-card-visual {
+  transform: translateY(-10px) rotate(-2deg);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6), 0 0 40px rgba(251, 191, 36, 0.3);
+}
+
+.countdown-overlay {
+  margin-top: 20px;
+  text-align: center;
+  z-index: 21;
+}
+
+.reveal-deal {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(1.1) rotateY(180deg);
+}

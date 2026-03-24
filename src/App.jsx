@@ -631,10 +631,20 @@ const App = () => {
       const { data: opts, error: optsErr } = await supabase
         .from('investment_options')
         .select('*')
-        .order('validity', { ascending: true });
+        .order('is_active', { ascending: false });
       
       if (optsErr) throw optsErr;
-      setAvailableInvestments(opts.filter(o => o.is_active !== false));
+      
+      // Filtra e ordena: Daily Deals primeiro, depois por prazo
+      const sortedInvs = opts
+        .filter(o => o.is_active !== false)
+        .sort((a, b) => {
+          if (Boolean(a.is_daily_deal) && !Boolean(b.is_daily_deal)) return -1;
+          if (!Boolean(a.is_daily_deal) && Boolean(b.is_daily_deal)) return 1;
+          return Number(a.validity) - Number(b.validity);
+        });
+      
+      setAvailableInvestments(sortedInvs);
 
       // Fetch User Investments
       const { data: userInvs, error: userInvErr } = await supabase
@@ -2427,9 +2437,16 @@ const AuthView = ({ onNotify }) => {
 
 const InvestmentCard = ({ investment, onInvest, onEdit, onDelete, isAdmin }) => {
   const [timeLeft, setTimeLeft] = useState('');
-  const isExpired = investment.is_daily_deal && new Date() > new Date(investment.deal_end_at);
-  const isUpcoming = investment.is_daily_deal && (new Date() < new Date(investment.deal_start_at));
-  const isActiveDeal = investment.is_daily_deal && !isExpired && !isUpcoming;
+  const isUpcoming = Boolean(investment.is_daily_deal) && (new Date() < new Date(investment.deal_start_at));
+  const isExpired = Boolean(investment.is_daily_deal) && new Date() > new Date(investment.deal_end_at);
+  const isActiveDeal = Boolean(investment.is_daily_deal) && !isExpired && !isUpcoming;
+  
+  // Debug para você ver no console (F12) se o sistema está detectando a oferta
+  useEffect(() => {
+    if (investment.is_daily_deal) {
+      console.log(`[Deal Monitor] ID: ${investment.id} | Upcoming: ${isUpcoming} | Active: ${isActiveDeal}`);
+    }
+  }, [investment, isUpcoming, isActiveDeal]);
 
   useEffect(() => {
     if (!investment.is_daily_deal) return;
@@ -2477,19 +2494,62 @@ const InvestmentCard = ({ investment, onInvest, onEdit, onDelete, isAdmin }) => 
   const TierIcon = investment.is_daily_deal ? Sparkles : (Number(investment.validity) === 30 ? Gem : (Number(investment.validity) === 3 || Number(investment.validity) === 7 || Number(investment.validity) === 15 ? Coins : TrendingUp));
 
   return (
-    <div className={`glass-card p-6 flex flex-col h-full relative overflow-hidden transition-all duration-500 ${isActiveDeal ? 'border-amber-500 shadow-[0_0_25px_rgba(251,191,36,0.3)]' : 'border-2 border-white/5'}`}>
+    <div 
+      className={`glass-card p-6 flex flex-col h-full relative overflow-hidden transition-all duration-700 ${isActiveDeal ? 'border-amber-500 shadow-[0_0_25px_rgba(251,191,36,0.3)]' : 'border-2 border-white/5'}`}
+      style={{ background: !isActiveDeal && !isUpcoming ? 'rgba(23, 23, 26, 0.7)' : undefined }}
+    >
+      
+      {/* Playing Card Teaser for Upcoming Deals */}
+      <AnimatePresence>
+        {isUpcoming && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, scale: 1.1 }}
+            className="investment-card-teaser p-6 text-center"
+            style={{ background: 'linear-gradient(180deg, #0a0a0c 0%, #17171a 100%)' }}
+          >
+             <div className="absolute top-0 right-0 p-4">
+                <div className="bg-blue-600 text-white text-[8px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest shadow-lg">Lançamento em breve</div>
+             </div>
+             
+             {/* Back-up Dourado se a imagem demorar a carregar */}
+             <div className="playing-card-visual" style={{ background: 'linear-gradient(45deg, #fbbf24, #f59e0b)', backgroundImage: "url('/playing-card.png')", backgroundSize: 'cover' }} />
+             
+             <div className="countdown-overlay space-y-2 mt-8">
+                <p className="text-[10px] text-muted uppercase tracking-[0.2em] font-bold">Início da Rodada em:</p>
+                <div className="flex gap-2 justify-center">
+                   {(() => {
+                      const now = new Date().getTime();
+                      const start = new Date(investment.deal_start_at).getTime();
+                      const d = start - now;
+                      if (d < 0) return <span className="text-amber-500 font-bold">ABRINDO...</span>;
+                      const h = Math.floor((d % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                      const m = Math.floor((d % (1000 * 60 * 60)) / (1000 * 60));
+                      const s = Math.floor((d % (1000 * 60)) / 1000);
+                      return (
+                        <>
+                          <div className="bg-white/10 px-3 py-2 rounded-xl text-2xl font-black outfit" style={{ border: '1px solid rgba(255,255,255,0.05)' }}>{h.toString().padStart(2, '0')}</div>
+                          <span className="text-xl font-bold self-center opacity-30">:</span>
+                          <div className="bg-white/10 px-3 py-2 rounded-xl text-2xl font-black outfit" style={{ border: '1px solid rgba(255,255,255,0.05)' }}>{m.toString().padStart(2, '0')}</div>
+                          <span className="text-xl font-bold self-center opacity-30">:</span>
+                          <div className="bg-white/10 px-3 py-2 rounded-xl text-2xl font-black outfit text-amber-500" style={{ border: '1px solid rgba(251,191,36,0.1)' }}>{s.toString().padStart(2, '0')}</div>
+                        </>
+                      );
+                   })()}
+                </div>
+                <p className="text-[11px] font-bold text-amber-500/80 animate-pulse mt-4">💎 Exclusivo Girafa Tech Elite</p>
+             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {isActiveDeal && (
         <div className="absolute top-0 left-0 w-full bg-amber-500 text-black text-[10px] font-black uppercase text-center py-1 tracking-widest flex items-center justify-center gap-2 z-10">
            <Clock size={12} /> Expira em: {timeLeft}
         </div>
       )}
       
-      {isUpcoming && (
-        <div className="absolute top-0 left-0 w-full bg-blue-600 text-white text-[10px] font-black uppercase text-center py-1 tracking-widest z-10">
-           Próxima Oferta: {new Date(investment.deal_start_at).toLocaleString()}
-        </div>
-      )}
-
       {isExpired && (
         <div className="absolute top-0 left-0 w-full bg-red-600/50 text-white text-[10px] font-black uppercase text-center py-1 tracking-widest z-10">
            Oferta Encerrada
