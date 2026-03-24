@@ -459,7 +459,7 @@ const App = () => {
         .maybeSingle();
       
       if (profErr) console.warn('Aviso: Perfil não encontrado ou erro.', profErr);
-      setProfile(prof || { full_name: 'Usuário Girafa', balance: 0 });
+      setProfile(prof || { full_name: user?.user_metadata?.full_name || 'Investidor Girafa', balance: 0 });
 
       // Fetch Investment Options
       const { data: opts, error: optsErr } = await supabase
