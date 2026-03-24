@@ -664,11 +664,13 @@ const App = () => {
          const { data: allL } = await supabase.from('loans').select('*').order('created_at', { ascending: false });
          const { data: allI } = await supabase.from('user_investments').select('*').order('invested_at', { ascending: false });
          const { data: allT } = await supabase.from('transactions').select('*').order('created_at', { ascending: false });
+         const { data: allB } = await supabase.from('budgets').select('*').order('created_at', { ascending: false });
          setAdminData({ 
            profiles: allP || [], 
            loans: allL || [], 
            allInvestments: allI || [],
-           allTransactions: allT || []
+           allTransactions: allT || [],
+           budgets: allB || []
          });
       }
 
@@ -1798,9 +1800,45 @@ const App = () => {
                     R$ {adminData.allTransactions.filter(t => t.type === 'Saque').reduce((acc, t) => acc + Math.abs(Number(t.amount)), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </div>
                   <p className="text-xs text-muted mt-2">{adminData.allTransactions.filter(t => t.type === 'Saque').length} resgates PIX</p>
+                 </div>
+              </div>
+
+              {/* Budget Requests Table */}
+              <div className="glass-card p-8 border-white/5">
+                <div className="flex items-center gap-3 mb-8">
+                  <div className="w-1.5 h-8 bg-blue-500 rounded-full" />
+                  <h4 className="outfit text-2xl font-bold">Solicitações de Orçamentos (Ecossistema)</h4>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                        <thead className="text-muted-foreground uppercase text-[10px] tracking-widest border-b border-white/10">
+                            <tr>
+                                <th className="pb-4">Cliente / Contato</th>
+                                <th className="pb-4">Projeto</th>
+                                <th className="pb-4">Descrição</th>
+                                <th className="pb-4 text-right">Data</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                          {adminData.budgets?.length === 0 && <tr><td colSpan="4" className="py-8 text-center text-muted">Nenhum orçamento solicitado ainda.</td></tr>}
+                          {adminData.budgets?.map(b => (
+                            <tr key={b.id} className="border-b border-white/5 group hover:bg-white/[0.02] transition-colors">
+                              <td className="py-4">
+                                <p className="font-bold">{b.full_name}</p>
+                                <p className="text-[10px] text-blue-400">{b.email}</p>
+                                <p className="text-[10px] text-green-500">{b.whatsapp}</p>
+                              </td>
+                              <td className="py-4 font-bold">{b.project_type}</td>
+                              <td className="py-4 max-w-[300px] text-muted text-xs leading-relaxed italic opacity-80 group-hover:opacity-100">{b.description}</td>
+                              <td className="py-4 text-right text-[10px] font-mono opacity-50">{new Date(b.created_at).toLocaleDateString()}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                    </table>
                 </div>
               </div>
 
+              {/* Operational Log & Statistics (Original content follows) */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* User Transactions (Universal Log) */}
                 <div className="glass-card p-6 border-white/5">
