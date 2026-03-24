@@ -959,7 +959,9 @@ const App = () => {
       <main className="main-content">
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 animate-in">
           <div>
-            <h2 className="text-3xl font-bold outfit mb-1 text-white">Olá Investidor, {profile?.full_name?.split(' ')[0] || ''}</h2>
+            <h2 className="text-3xl font-bold outfit mb-1 text-white">
+              Olá Investidor, {profile?.full_name?.split(' ')[0] || user?.user_metadata?.full_name?.split(' ')[0] || 'Girafa'}!
+            </h2>
             <p className="text-muted">Gestão inteligente do seu capital em nuvem.</p>
           </div>
           <div className="flex gap-4 w-full md:w-auto overflow-x-auto pb-4 md:pb-0">
