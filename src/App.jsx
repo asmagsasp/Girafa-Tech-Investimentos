@@ -739,18 +739,35 @@ const App = () => {
       // Pequeno delay para simular a verificação da rede Pix
       setTimeout(async () => {
         try {
+          // Estratégia de Persistência Forçada: Update com Fallback para Upsert
           const currentBal = Number(profile?.balance || 0);
           const newBal = currentBal + extra;
           
-          const { error } = await supabase
+          const { data: updateData, error: updateErr } = await supabase
             .from('profiles')
             .update({ balance: newBal })
-            .eq('id', user.id);
+            .eq('id', user.id)
+            .select();
           
-          if (error) {
-            console.error('ERRO DE DEPÓSITO:', error);
-            alert('ERRO NO DEPÓSITO: ' + error.message);
-            showNotification('Erro ao compensar Pix.', 'error');
+          let saveError = updateErr;
+          
+          // Se não atualizou nada (registro faltante), força a criação com o saldo certo
+          if (!saveError && (!updateData || updateData.length === 0)) {
+            console.log('Update falhou no banco (zero linhas), forçando upsert...');
+            const { error: upsertErr } = await supabase
+              .from('profiles')
+              .upsert({ 
+                id: user.id, 
+                balance: newBal,
+                full_name: profile?.full_name || user?.user_metadata?.full_name || 'Investidor'
+              });
+            saveError = upsertErr;
+          }
+          
+          if (saveError) {
+            console.error('ERRO FATAL DE PERSISTÊNCIA:', saveError);
+            alert('ERRO DE BANCO DE DADOS: O saldo não pôde ser salvo permanentemente. Erro: ' + saveError.message);
+            showNotification('Erro ao salvar no banco!', 'error');
             setPixStatus('idle');
           } else {
             setProfile({ ...profile, balance: newBal });
