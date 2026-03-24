@@ -960,7 +960,18 @@ const App = () => {
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 animate-in">
           <div>
             <h2 className="text-3xl font-bold outfit mb-1 text-white">
-              Olá Investidor, {profile?.full_name?.split(' ')[0] || user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'Girafa'}!
+              Olá, {(() => {
+                const nameFromDb = profile?.full_name;
+                const nameFromMeta = user?.user_metadata?.full_name || user?.user_metadata?.fullName;
+                const nameFromEmail = user?.email?.split('@')[0];
+                
+                // Se o nome do banco for o padrão "Investidor Girafa" ou "Usuário Girafa", tentamos o meta ou email
+                const finalName = (nameFromDb && !nameFromDb.includes('Girafa')) 
+                  ? nameFromDb 
+                  : (nameFromMeta || nameFromEmail || 'Investidor');
+                  
+                return finalName.split(' ')[0].trim();
+              })()}!
             </h2>
             <p className="text-muted">Gestão inteligente do seu capital em nuvem.</p>
           </div>
