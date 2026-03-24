@@ -30,6 +30,7 @@ import {
   MessageSquare,
   Heart,
   HeartHandshake,
+  Handshake,
   Calculator,
   Home,
   Tag,
@@ -42,7 +43,9 @@ import {
   Coins,
   Gem,
   Dices,
-  Trophy
+  Trophy,
+  RotateCcw,
+  ArrowLeftRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from './lib/supabase';
@@ -236,14 +239,19 @@ const GiraluckySection = ({ profile, updateBalance, showNotification }) => {
     setShowConfetti(false);
     
     // Deduct cost (R$ 5,00)
-    const newBalancePre = profile.balance - 5;
-    const { error: dedErr } = await supabase.from('profiles').update({ balance: newBalancePre }).eq('id', profile.id);
+    const { data: newBal, error: dedErr } = await supabase.rpc('handle_balance_change', { 
+      user_id_param: profile.id, 
+      amount_param: -5,
+      type_param: 'Investimento',
+      desc_param: 'Aposta no GiraLucky'
+    });
+    
     if (dedErr) {
       showNotification('Erro ao processar aposta.', 'error');
       setSpinning(false);
       return;
     }
-    updateBalance(newBalancePre);
+    updateBalance(newBal);
 
     const spinInterval = setInterval(() => {
       setReels([
@@ -279,10 +287,15 @@ const GiraluckySection = ({ profile, updateBalance, showNotification }) => {
 
       if (prize > 0) {
         setShowConfetti(true);
-        const winningBalance = newBalancePre + prize;
-        const { error: winErr } = await supabase.from('profiles').update({ balance: winningBalance }).eq('id', profile.id);
+        const { data: updatedBal, error: winErr } = await supabase.rpc('handle_balance_change', { 
+          user_id_param: profile.id, 
+          amount_param: prize,
+          type_param: 'Lucro',
+          desc_param: `Prêmio GiraLucky: ${winMsg}`
+        });
+        
         if (!winErr) {
-          updateBalance(winningBalance);
+          updateBalance(updatedBal);
           showNotification(winMsg, 'success');
         }
         setTimeout(() => setShowConfetti(false), 3000);
@@ -368,14 +381,17 @@ const App = () => {
   const [profile, setProfile] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [notification, setNotification] = useState(null);
   const [showLanding, setShowLanding] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [reportsSubTab, setReportsSubTab] = useState('all'); // all, deposits, withdrawals
   
   // Data States
   const [availableInvestments, setAvailableInvestments] = useState([]);
   const [myInvestments, setMyInvestments] = useState([]);
+  const [transactions, setTransactions] = useState([]);
   const [loans, setLoans] = useState([]);
-  const [adminData, setAdminData] = useState({ profiles: [], loans: [], allInvestments: [] });
+  const [adminData, setAdminData] = useState({ profiles: [], loans: [], allInvestments: [], allTransactions: [] });
   const [referralLink, setReferralLink] = useState('');
   
   // Modal & Form States
@@ -386,9 +402,36 @@ const App = () => {
   const [pixAmount, setPixAmount] = useState('');
   const [pixRecipient, setPixRecipient] = useState('');
   const [pixStatus, setPixStatus] = useState('idle');
-  const [notification, setNotification] = useState(null);
+
+  // Hooks de Cálculo
+  const calculateProgress = React.useCallback((investedAt, validity) => {
+    if (!investedAt) return 0;
+    const start = new Date(investedAt).getTime();
+    const now = new Date().getTime();
+    const duration = Number(validity) * 24 * 60 * 60 * 1000;
+    const progress = ((now - start) / duration) * 100;
+    return Math.min(Math.max(progress, 0), 100).toFixed(1);
+  }, []);
+
+  const calculateAccruedEarnings = React.useCallback((inv) => {
+    if (!inv) return 0;
+    const progress = Number(calculateProgress(inv.invested_at, inv.validity)) / 100;
+    const totalPotentialProfit = Number(inv.final_amount ?? 0) - Number(inv.invested_amount ?? 0);
+    return totalPotentialProfit * progress;
+  }, [calculateProgress]);
+
+  const totalEarnings = React.useMemo(() => {
+    if (!myInvestments) return 0;
+    return myInvestments.reduce((acc, inv) => acc + calculateAccruedEarnings(inv), 0);
+  }, [myInvestments, calculateAccruedEarnings]);
 
   useEffect(() => {
+    console.log('>>> GIRAFA TECH V1.5.0 LOADED <<<');
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+
     supabase.auth.getSession().then(({ data: { session: sess } }) => {
       if (sess) {
         setSession(sess);
@@ -396,13 +439,12 @@ const App = () => {
         if (sess?.user?.email) {
           const userMail = sess.user.email.toLowerCase();
           console.log('Login Detectado:', userMail);
-          setIsAdmin(
-            userMail === 'admin@girafatech.com' || 
-            userMail === 'abel@girafatech.com' || 
-            userMail === 'abel.souza.magalhaes@hotmail.com'
-          );
+          const isUserAdmin = userMail === 'admin@girafatech.com' || 
+                             userMail === 'abel@girafatech.com' || 
+                             userMail === 'abel.souza.magalhaes@hotmail.com';
+          setIsAdmin(isUserAdmin);
+          fetchUserData(sess.user.id, sess.user);
         }
-        fetchUserData(sess.user.id);
       } else {
         setLoading(false);
       }
@@ -426,12 +468,13 @@ const App = () => {
         setSession(sess);
         setUser(sess?.user ?? null);
         if (sess) {
+          const email = sess.user.email?.toLowerCase();
           setIsAdmin(
-            sess.user.email === 'admin@girafatech.com' || 
-            sess.user.email === 'abel@girafatech.com' || 
-            sess.user.email === 'abel.souza.magalhaes@hotmail.com'
+            email === 'admin@girafatech.com' || 
+            email === 'abel@girafatech.com' || 
+            email === 'abel.souza.magalhaes@hotmail.com'
           );
-          fetchUserData(sess.user.id);
+          fetchUserData(sess.user.id, sess.user);
         } else {
           setProfile(null);
           setIsAdmin(false);
@@ -448,7 +491,7 @@ const App = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchUserData = async (userId) => {
+  const fetchUserData = async (userId, currentUser) => {
     setLoading(true);
     try {
       // Fetch Profile (Tolerant to missing profile from bugged registrations)
@@ -493,19 +536,26 @@ const App = () => {
       if (userInvErr) throw userInvErr;
       setMyInvestments(userInvs);
 
-      // Fetch User Loans
-      const { data: userLoans } = await supabase.from('loans').select('*').eq('user_id', userId).order('created_at', { ascending: false });
-      setLoans(userLoans || []);
+      // Fetch User Transactions
+      const { data: userTrans } = await supabase.from('transactions').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+      setTransactions(userTrans || []);
 
       setReferralLink(`${window.location.origin}/?ref=${userId}`);
 
       // Fetch Admin Data
       const adminEmails = ['admin@girafatech.com', 'abel@girafatech.com', 'abel.souza.magalhaes@hotmail.com'];
-      if (adminEmails.includes(prof?.email)) {
+      const userToVerify = currentUser || user;
+      if (adminEmails.includes(userToVerify?.email?.toLowerCase())) {
          const { data: allP } = await supabase.from('profiles').select('*');
          const { data: allL } = await supabase.from('loans').select('*').order('created_at', { ascending: false });
          const { data: allI } = await supabase.from('user_investments').select('*').order('invested_at', { ascending: false });
-         setAdminData({ profiles: allP || [], loans: allL || [], allInvestments: allI || [] });
+         const { data: allT } = await supabase.from('transactions').select('*').order('created_at', { ascending: false });
+         setAdminData({ 
+           profiles: allP || [], 
+           loans: allL || [], 
+           allInvestments: allI || [],
+           allTransactions: allT || []
+         });
       }
 
     } catch (err) {
@@ -618,39 +668,57 @@ const App = () => {
 
     try {
       const accrued = Number(calculateAccruedEarnings(inv));
-      if (accrued < 20) {
-        showNotification('O saque mínimo permitido é de R$ 20,00 de lucro.', 'error');
-        alert('SAQUE NEGADO: Seu lucro atual de R$ ' + accrued.toFixed(2) + ' ainda é menor que o mínimo de R$ 20,00.');
-        return;
-      }
+      const progress = Number(calculateProgress(inv.invested_at, inv.validity));
+      const isEndReached = progress >= 100;
 
       setPixStatus('checking');
 
-      // 1. Calculate Payout (includes principal + profit minus 5% fee)
-      const principal = Number(inv.invested_amount);
-      const fee = (principal + accrued) * 0.05;
-      const finalPayout = (principal + accrued) - fee;
+      // Decide payout based on progress
+      const principal = Number(inv.invested_amount) || 0;
+      const amountToWithdraw = isEndReached ? (principal + accrued) : accrued;
 
-      // 2. Call the REAL RecargaPay Withdrawal Function (Supabase Edge Function)
-      const { data: result, error: rpcErr } = await supabase.functions.invoke('process-pix-withdrawal', {
-        body: { 
-          amount: finalPayout, 
-          pix_key: profile.pix_key, 
-          user_id: user.id,
-          active_id: inv.active_id // used for ref / deletion logic in backend
-        }
+      // 1.5 Liquidar investimento para o saldo (Tornar o saldo disponível internamente)
+      const { data: newBalAfterLiq, error: liqErr } = await supabase.rpc('handle_balance_change', {
+        user_id_param: user.id,
+        amount_param: amountToWithdraw,
+        type_param: 'Lucro',
+        desc_param: `Liquidação de Ativo #${inv.active_id.slice(0, 8)}`
       });
 
-      if (rpcErr || (result && result.error)) {
-        console.error('RPC ERROR:', rpcErr || result.error);
-        showNotification(result?.error || 'Erro ao processar saque real.', 'error');
+      if (liqErr) {
+        console.error('Erro na liquidação:', liqErr);
+        showNotification('Erro ao liquidar lucro para o saldo.', 'error');
         setPixStatus('idle');
+        return;
+      }
+
+      // Calculate 5% fee for the manual payout record
+      const fee = amountToWithdraw * 0.05;
+      const finalPayout = amountToWithdraw - fee;
+
+      // 2. Registrar o Saque no Relatório (Sem chamada RecargaPay agora)
+      const { data: finalBal, error: withdrawErr } = await supabase.rpc('handle_balance_change', {
+        user_id_param: user.id,
+        amount_param: -finalPayout,
+        type_param: 'Saque',
+        desc_param: `Saque Manual (RecargaPay: 09551040848) para: ${profile.pix_key || 'Chave não cadastrada'}`
+      });
+
+      if (withdrawErr) {
+        console.error('Erro no registro do saque:', withdrawErr);
+        showNotification('Erro ao registrar solicitação de saque.', 'error');
+        setPixStatus('idle');
+        setProfile(prev => ({ ...prev, balance: Number(newBalAfterLiq) }));
       } else {
-        // 3. Remove the investment from state (The backend handles DB deletion for security)
-        setProfile({ ...profile, balance: result.new_balance });
-        setMyInvestments(myInvestments.filter(i => i.active_id !== inv.active_id));
+        // Sucesso no Registro!
+        if (isEndReached) {
+          await supabase.from('user_investments').delete().eq('active_id', inv.active_id);
+          setMyInvestments(prev => prev.filter(i => i.active_id !== inv.active_id));
+        }
+        
+        setProfile(prev => ({ ...prev, balance: Number(finalBal) }));
         setPixStatus('confirmed');
-        showNotification(`Resgate PIX de R$ ${finalPayout.toFixed(2)} CONCLUÍDO!`);
+        showNotification(`Solicitação de saque de R$ ${finalPayout.toFixed(2)} registrado! Nossa equipe realizará o Pix em breve.`);
         
         setTimeout(() => {
           setModalType(null);
@@ -660,6 +728,54 @@ const App = () => {
     } catch (err) {
       console.error('Erro fatal no saque:', err);
       showNotification('Conexão instável. Tente novamente em instantes.', 'error');
+      setPixStatus('idle');
+    }
+  };
+
+  const handleWithdrawBalance = async () => {
+    if (!profile?.pix_key) {
+      showNotification('Cadastre uma chave Pix no perfil para sacar!', 'error');
+      setModalType('profile');
+      return;
+    }
+
+    const amount = Number(pixAmount);
+    if (!amount || amount <= 0) {
+      showNotification('Digite um valor válido para saque.', 'error');
+      return;
+    }
+
+    if (amount > profile.balance) {
+      showNotification('Saldo insuficiente!', 'error');
+      return;
+    }
+
+    setPixStatus('checking');
+    try {
+      // 1. Registro Manual via RPC
+      const { data: newBal, error: rpcErr } = await supabase.rpc('handle_balance_change', {
+        user_id_param: user.id,
+        amount_param: -amount,
+        type_param: 'Saque',
+        desc_param: `Saque Balance (RecargaPay: 09551040848) para: ${profile.pix_key}`
+      });
+
+      if (rpcErr) {
+        showNotification('Erro ao registrar saque: ' + rpcErr.message, 'error');
+        setPixStatus('idle');
+      } else {
+        setProfile(prev => ({ ...prev, balance: Number(newBal) }));
+        setPixStatus('confirmed');
+        showNotification(`Saque de R$ ${amount.toFixed(2)} enviado para processamento manual!`);
+        setTimeout(() => {
+          setModalType(null);
+          setPixStatus('idle');
+          setPixAmount('');
+        }, 3000);
+      }
+    } catch (err) {
+      console.error('Withdraw balance error:', err);
+      showNotification('Erro interno no saque.', 'error');
       setPixStatus('idle');
     }
   };
@@ -683,9 +799,14 @@ const App = () => {
       return;
     }
     
-    const newBal = profile.balance - amount;
-    const { error: balErr } = await supabase.from('profiles').update({ balance: newBal }).eq('id', user.id);
-    if (balErr) return showNotification('Erro na transação.', 'error');
+    const { data: newBal, error: balErr } = await supabase.rpc('handle_balance_change', { 
+      user_id_param: user.id, 
+      amount_param: -amount,
+      type_param: 'Investimento',
+      desc_param: `Aporte no ${selectedInvestment.is_daily_deal ? 'Oportunidade do Dia' : 'Projeto'}`
+    });
+    
+    if (balErr) return showNotification('Erro na transação: ' + balErr.message, 'error');
 
     const newActiveInv = {
       user_id: user.id,
@@ -698,10 +819,18 @@ const App = () => {
     };
 
     const { data, error } = await supabase.from('user_investments').insert([newActiveInv]).select().single();
-    if (error) showNotification('Erro ao registrar investimento.', 'error');
-    else {
-      setProfile({ ...profile, balance: newBal });
-      setMyInvestments([data, ...myInvestments]);
+    if (error) {
+      // Reverter saldo em caso de erro no registro do investimento (opcional, mas seguro)
+      await supabase.rpc('handle_balance_change', { 
+        user_id_param: user.id, 
+        amount_param: amount,
+        type_param: 'Refundo',
+        desc_param: 'Erro ao registrar investimento'
+      });
+      showNotification('Erro ao registrar investimento.', 'error');
+    } else {
+      setProfile(prev => ({ ...prev, balance: Number(newBal) }));
+      setMyInvestments(prev => [data, ...prev]);
       showNotification('Investimento realizado!');
       setModalType(null);
     }
@@ -710,15 +839,18 @@ const App = () => {
   const handleDeleteMyInvestment = async (activeId) => {
     if (window.confirm('Cancelar este investimento? O capital retornará ao saldo.')) {
       const inv = myInvestments.find(i => i.active_id === activeId);
-      const newBal = profile.balance + Number(inv.invested_amount);
-      
-      const { error: balErr } = await supabase.from('profiles').update({ balance: newBal }).eq('id', user.id);
+      const { data: newBal, error: rpcErr } = await supabase.rpc('handle_balance_change', { 
+        user_id_param: user.id, 
+        amount_param: Number(inv.invested_amount),
+        type_param: 'Estorno',
+        desc_param: 'Cancelamento de Investimento'
+      });
       const { error: delErr } = await supabase.from('user_investments').delete().eq('active_id', activeId);
       
-      if (balErr || delErr) showNotification('Erro ao processar cancelamento.', 'error');
+      if (rpcErr || delErr) showNotification('Erro ao processar cancelamento.', 'error');
       else {
-        setProfile({ ...profile, balance: newBal });
-        setMyInvestments(myInvestments.filter(i => i.active_id !== activeId));
+        setProfile(prev => ({ ...prev, balance: Number(newBal) }));
+        setMyInvestments(prev => prev.filter(i => i.active_id !== activeId));
         showNotification('Investimento cancelado e saldo estornado!');
       }
     }
@@ -739,47 +871,35 @@ const App = () => {
       // Pequeno delay para simular a verificação da rede Pix
       setTimeout(async () => {
         try {
-          // Estratégia de Persistência Forçada: Update com Fallback para Upsert
-          const currentBal = Number(profile?.balance || 0);
-          const newBal = currentBal + extra;
+          const { data: newBal, error: rpcErr } = await supabase
+            .rpc('handle_balance_change', { 
+              user_id_param: user.id, 
+              amount_param: extra,
+              type_param: 'Depósito',
+              desc_param: 'Depósito PIX Cloud'
+            });
           
-          const { data: updateData, error: updateErr } = await supabase
-            .from('profiles')
-            .update({ balance: newBal })
-            .eq('id', user.id)
-            .select();
-          
-          let saveError = updateErr;
-          
-          // Se não atualizou nada (registro faltante), força a criação com o saldo certo
-          if (!saveError && (!updateData || updateData.length === 0)) {
-            console.log('Update falhou no banco (zero linhas), forçando upsert...');
-            const { error: upsertErr } = await supabase
-              .from('profiles')
-              .upsert({ 
-                id: user.id, 
-                balance: newBal,
-                full_name: profile?.full_name || user?.user_metadata?.full_name || 'Investidor'
-              });
-            saveError = upsertErr;
-          }
-          
-          if (saveError) {
-            console.error('ERRO FATAL DE PERSISTÊNCIA:', saveError);
-            alert('ERRO DE BANCO DE DADOS: O saldo não pôde ser salvo permanentemente. Erro: ' + saveError.message);
+          if (rpcErr) {
+            console.error('ERRO FATAL DE PERSISTÊNCIA:', rpcErr);
+            alert('ERRO DE BANCO DE DADOS: O saldo não pôde ser salvo permanentemente.');
             showNotification('Erro ao salvar no banco!', 'error');
             setPixStatus('idle');
           } else {
-            setProfile({ ...profile, balance: newBal });
+            setProfile(prev => ({ ...prev, balance: Number(newBal) }));
+            
+            // Garantir que os dados mais recentes do servidor sejam carregados (Consistencia Total)
+            fetchUserData(user.id);
             
             // Affiliate Bonus (5% deposit matches)
             if (profile?.referred_by) {
                try {
                  const bonus = extra * 0.05;
-                 const { data: refProf } = await supabase.from('profiles').select('balance').eq('id', profile.referred_by).single();
-                 if (refProf) {
-                   await supabase.from('profiles').update({ balance: Number(refProf.balance) + bonus }).eq('id', profile.referred_by);
-                 }
+                  await supabase.rpc('handle_balance_change', {
+                    user_id_param: profile.referred_by,
+                    amount_param: bonus,
+                    type_param: 'Bônus',
+                    desc_param: 'Comissão de Afiliado'
+                  });
                } catch(e) { console.error('Error adding referral bonus', e); }
             }
 
@@ -830,10 +950,12 @@ const App = () => {
   const handleAdminLoanAction = async (loanId, action, userId, amount) => {
     try {
       if (action === 'Aprovado') {
-         const borrower = adminData.profiles.find(p => p.id === userId);
-         if(borrower) {
-           await supabase.from('profiles').update({ balance: Number(borrower.balance) + Number(amount) }).eq('id', userId);
-         }
+        await supabase.rpc('handle_balance_change', { 
+          user_id_param: userId, 
+          amount_param: Number(amount),
+          type_param: 'Depósito',
+          desc_param: 'Empréstimo Girafa Bank Aprovado'
+        });
       }
       await supabase.from('loans').update({ status: action }).eq('id', loanId);
       showNotification(`Empréstimo ${action}!`);
@@ -841,6 +963,27 @@ const App = () => {
     } catch(err) {
       console.error('Admin Erro:', err);
       showNotification('Erro interno.', 'error');
+    }
+  };
+  
+  const handleConferTransaction = async (tId) => {
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .update({ 
+          is_conferred: true, 
+          conferred_at: new Date().toISOString() 
+        })
+        .eq('id', tId);
+      
+      if (error) throw error;
+      showNotification('Transação marcada como conferida!', 'success');
+      
+      // Recarregar dados para refletir o selo de conferência
+      if (user) fetchUserData(user.id, user);
+    } catch (err) {
+      console.error('Erro ao conferir:', err);
+      showNotification('Erro ao carimbar transação.', 'error');
     }
   };
 
@@ -863,14 +1006,6 @@ const App = () => {
     }
   };
 
-  const calculateProgress = (investedAt, validity) => {
-    const start = new Date(investedAt).getTime();
-    const now = new Date().getTime();
-    const duration = Number(validity) * 24 * 60 * 60 * 1000;
-    const progress = ((now - start) / duration) * 100;
-    return Math.min(Math.max(progress, 0), 100).toFixed(1);
-  };
-
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-black">
       <div className="text-center space-y-4">
@@ -885,20 +1020,8 @@ const App = () => {
     return <LandingPage onGetStarted={() => setShowLanding(false)} />;
   }
   
-  // Se está logado mas clicou no menu "Ecossistema"
-  if (showLanding && session) {
-    return (
-      <div className="relative">
-        <button 
-          onClick={() => setShowLanding(false)} 
-          className="fixed top-8 right-8 z-[200] bg-amber-500 text-black px-6 py-3 rounded-full font-bold shadow-2xl hover:scale-105 transition-all"
-        >
-          Voltar para o App ➔
-        </button>
-        <LandingPage onGetStarted={() => setShowLanding(false)} />
-      </div>
-    );
-  }
+  // Removido o bloco de retorno antecipado da Landing Page para session.
+  // Agora a lógica de showLanding será tratada dentro do return principal.
 
   if (!supabase || !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
     return (
@@ -921,21 +1044,21 @@ const App = () => {
 
   if (!session) return <AuthView onNotify={showNotification} />;
 
-  const calculateAccruedEarnings = (inv) => {
-    const progress = Number(calculateProgress(inv.invested_at, inv.validity)) / 100;
-    const totalPotentialProfit = Number(inv.final_amount) - Number(inv.invested_amount);
-    return totalPotentialProfit * progress;
-  };
-
-  const totalEarnings = myInvestments.reduce((acc, inv) => acc + calculateAccruedEarnings(inv), 0);
+  if (!session) return <AuthView onNotify={showNotification} />;
 
   return (
     <div className="min-h-screen">
+      <div className="fixed top-0 left-0 w-full bg-amber-500 text-black text-[10px] font-black uppercase text-center py-1 z-[999] tracking-widest animate-pulse border-b border-black">
+         🦒 AVISO: V1.5.0 - RELATÓRIOS ATIVOS - SE VOCÊ VÊ ISSO, ESTÁ ATUALIZADO
+      </div>
       {/* Sidebar */}
-      <nav className="sidebar">
+      <nav className="sidebar mt-6">
         <div className="flex items-center gap-3 mb-10 px-2">
           <img src="/logo.png" alt="Girafa Tech" className="w-12 h-12 rounded-xl object-contain border border-amber-500/30" />
-          <h1 className="text-xl font-bold gradient-text outfit leading-tight">GIRAFA TECH<br /><span className="text-xs text-muted font-normal tracking-widest uppercase">Investimentos</span></h1>
+          <div>
+            <h1 className="text-xl font-bold gradient-text outfit leading-tight">GIRAFA TECH</h1>
+            <span className="text-[10px] text-amber-500 font-bold tracking-widest uppercase opacity-50">v1.5.0-REPORTS</span>
+          </div>
         </div>
 
         <div className="flex-1">
@@ -945,6 +1068,12 @@ const App = () => {
 
           <button onClick={() => { setActiveTab('dashboard'); setShowLanding(false); }} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'dashboard' && !showLanding ? 'active' : ''}`}>
             <LayoutDashboard size={20} /> Tela Inicial
+          </button>
+
+          <button onClick={() => { setActiveTab('reports'); setShowLanding(false); }} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'reports' ? 'active' : ''}`}>
+            <RotateCcw size={20} className="text-green-500" /> 
+            <span className="flex-1 font-black">Relatórios</span>
+            <span className="bg-green-500 text-black text-[8px] font-bold px-1.5 py-0.5 rounded-full">ATIVO</span>
           </button>
           
           {isAdmin && (
@@ -958,21 +1087,18 @@ const App = () => {
             </>
           )}
 
-          <button onClick={() => setActiveTab('girafa_bank')} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'girafa_bank' ? 'active' : ''}`}>
+          <button onClick={() => { setActiveTab('girafa_bank'); setShowLanding(false); }} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'girafa_bank' ? 'active' : ''}`}>
             <Landmark size={20} /> Girafa Bank
           </button>
 
-          <button onClick={() => setActiveTab('explore')} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'explore' ? 'active' : ''}`}>
+          <button onClick={() => { setActiveTab('explore'); setShowLanding(false); }} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'explore' ? 'active' : ''}`}>
             <TrendingUp size={20} /> Oportunidades
           </button>
-          <button onClick={() => setActiveTab('giralucky')} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'giralucky' ? 'active' : ''} text-amber-500`}>
+          <button onClick={() => { setActiveTab('giralucky'); setShowLanding(false); }} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'giralucky' ? 'active' : ''} text-amber-500`}>
             <Dices size={20} /> GiraLucky
           </button>
-          <button onClick={() => setActiveTab('my_investments')} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'my_investments' ? 'active' : ''}`}>
+          <button onClick={() => { setActiveTab('my_investments'); setShowLanding(false); }} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'my_investments' ? 'active' : ''}`}>
             <Wallet size={20} /> Meus Investimentos
-          </button>
-          <button onClick={() => setActiveTab('reports')} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'reports' ? 'active' : ''}`}>
-            <History size={20} /> Relatórios
           </button>
         </div>
 
@@ -984,11 +1110,21 @@ const App = () => {
             <LogOut size={20} /> Sair
           </button>
         </div>
+        
+        <div className="mt-4 pt-4 border-t border-white/5 text-[8px] text-muted/20 font-mono text-center uppercase tracking-widest">
+           v1.5.0-REPORTS
+        </div>
       </nav>
 
       {/* Main Content */}
       <main className="main-content">
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 animate-in">
+        {showLanding ? (
+           <div className="animate-in -mt-10 -ml-10 -mr-10 h-full" key="landing">
+             <LandingPage onGetStarted={() => setShowLanding(false)} />
+           </div>
+        ) : (
+          <div key="dashboard-shell" className="animate-in">
+            <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 animate-in">
           <div>
             <h2 className="text-3xl font-bold outfit mb-1 text-white">
               Olá, {(() => {
@@ -1007,9 +1143,12 @@ const App = () => {
             <p className="text-muted">Gestão inteligente do seu capital em nuvem.</p>
           </div>
           <div className="flex gap-4 w-full md:w-auto overflow-x-auto pb-4 md:pb-0">
+            <button onClick={() => { setActiveTab('reports'); setShowLanding(false); }} className="px-4 py-2 bg-green-500/10 text-green-500 border border-green-500/20 rounded-xl text-xs font-bold hover:bg-green-500/20 transition-all flex items-center gap-2">
+               <History size={14} /> Ver Extrato
+            </button>
             <div className="glass-card px-6 py-4 flex flex-col min-w-[200px] border-amber-500/20">
               <span className="stat-label flex items-center gap-2"><Wallet size={14} className="text-amber-500" /> Disponível para Aplicação</span>
-              <span className="stat-value text-amber-400">R$ {profile?.balance?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              <span className="stat-value text-amber-400">R$ {(Number(profile?.balance) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
             </div>
             <div className="glass-card px-6 py-4 flex flex-col min-w-[200px] border-green-500/20">
               <span className="stat-label flex items-center gap-2"><TrendingUp size={14} className="text-green-500" /> Rendimentos Ativos</span>
@@ -1030,7 +1169,7 @@ const App = () => {
                   <p className="text-muted text-sm">Adicione saldo na sua carteira Girafa Cloud.</p>
                 </div>
                 
-                <div onClick={() => setActiveTab('giralucky')} className="glass-card stat-card cursor-pointer border-purple-500/20 hover:border-purple-500/50 group">
+                <div onClick={() => { setActiveTab('giralucky'); setShowLanding(false); }} className="glass-card stat-card cursor-pointer border-purple-500/20 hover:border-purple-500/50 group">
                   <div className="bg-purple-500/10 w-12 h-12 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                     <Dices className="text-purple-500" />
                   </div>
@@ -1038,12 +1177,20 @@ const App = () => {
                   <p className="text-muted text-sm">Tente a sorte e dobre seu capital agora!</p>
                 </div>
 
-                <div onClick={() => setActiveTab('my_investments')} className="glass-card stat-card cursor-pointer hover:border-blue-500/50 group">
+                <div onClick={() => { setModalType('pix_withdraw'); setPixAmount(''); }} className="glass-card stat-card cursor-pointer border-blue-500/20 hover:border-blue-500/50 group">
                   <div className="bg-blue-500/10 w-12 h-12 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <SendHorizontal className="text-blue-500" />
+                    <ArrowLeftRight className="text-blue-500" />
                   </div>
-                  <h3 className="outfit text-xl mb-1">Sacar</h3>
-                  <p className="text-muted text-sm">Resgate seus lucros diretamente para a chave Pix.</p>
+                  <h3 className="outfit text-xl mb-1">Sacar Saldo</h3>
+                  <p className="text-muted text-sm">Resgate seu saldo disponível para sua chave Pix.</p>
+                </div>
+
+                <div onClick={() => { setActiveTab('reports'); setShowLanding(false); }} className="glass-card stat-card cursor-pointer border-green-500/20 hover:border-green-500/50 group">
+                  <div className="bg-green-500/10 w-12 h-12 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                    <History className="text-green-500" />
+                  </div>
+                  <h3 className="outfit text-xl mb-1">Relatórios</h3>
+                  <p className="text-muted text-sm">Acesse seu extrato detalhado de ganhos.</p>
                 </div>
               </div>
 
@@ -1192,36 +1339,135 @@ const App = () => {
           )}
 
           {activeTab === 'reports' && (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-8">
+              {(() => {
+                const targetTransactions = isAdmin ? adminData.allTransactions : transactions;
+                return (
+                  <>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="glass-card p-4 border-amber-500/10">
+                   <p className="text-[10px] text-muted uppercase font-bold mb-1">Total Depositado</p>
+                   <p className="text-xl font-bold text-amber-500">R$ {targetTransactions.filter(t => t.type === 'Depósito').reduce((acc, t) => acc + Number(t.amount), 0).toFixed(2)}</p>
+                </div>
+                <div className="glass-card p-4 border-red-500/10">
+                   <p className="text-[10px] text-muted uppercase font-bold mb-1">Total Sacado</p>
+                   <p className="text-xl font-bold text-red-400">R$ {targetTransactions.filter(t => t.type === 'Saque').reduce((acc, t) => acc + Math.abs(Number(t.amount)), 0).toFixed(2)}</p>
+                </div>
+                <div className="glass-card p-4 border-green-500/10">
+                   <p className="text-[10px] text-muted uppercase font-bold mb-1">Total Lucros</p>
+                   <p className="text-xl font-bold text-green-400">R$ {targetTransactions.filter(t => t.type === 'Lucro' || t.type === 'Bônus').reduce((acc, t) => acc + Number(t.amount), 0).toFixed(2)}</p>
+                </div>
+                <div className="glass-card p-4 border-blue-500/10">
+                   <p className="text-[10px] text-muted uppercase font-bold mb-1">Movimentações</p>
+                   <p className="text-xl font-bold text-blue-400">{targetTransactions.length}</p>
+                </div>
+              </div>
+
               <div className="glass-card p-8">
-                <h3 className="outfit text-2xl mb-8">Relatório Consolidado (Cloud)</h3>
+                <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
+                   <div className="space-y-1">
+                      <h3 className="outfit text-2xl">Gestão de Inteligência Financeira</h3>
+                      <p className="text-[10px] text-muted uppercase tracking-[0.2em]">Conciliação Bancária / Contrapartida Girafa vs RecargaPay</p>
+                   </div>
+                   <div className="flex gap-2 bg-white/5 p-1 rounded-xl border border-white/5">
+                      <button onClick={() => setReportsSubTab('all')} className={`text-[10px] py-2 px-4 rounded-lg font-bold uppercase tracking-tighter transition-all ${reportsSubTab === 'all' ? 'bg-amber-500 text-black' : 'text-muted hover:text-white'}`}>Tudo</button>
+                      <button onClick={() => setReportsSubTab('deposits')} className={`text-[10px] py-2 px-4 rounded-lg font-bold uppercase tracking-tighter transition-all ${reportsSubTab === 'deposits' ? 'bg-green-500/20 text-green-400' : 'text-muted hover:text-white'}`}>Depósitos (Entrada)</button>
+                      <button onClick={() => setReportsSubTab('withdrawals')} className={`text-[10px] py-2 px-4 rounded-lg font-bold uppercase tracking-tighter transition-all ${reportsSubTab === 'withdrawals' ? 'bg-red-500/20 text-red-400' : 'text-muted hover:text-white'}`}>Saques (Saída)</button>
+                   </div>
+                </header>
+
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="border-b border-white/10 text-muted text-sm uppercase">
-                        <th className="py-4 px-4 font-medium">Data</th>
+                      <tr className="border-b border-white/10 text-muted text-[10px] uppercase bg-white/[0.02]">
+                        <th className="py-4 px-4 font-medium">Data & Hora</th>
+                        {isAdmin && <th className="py-4 px-4 font-black text-amber-500">Dono (Cliente)</th>}
+                        {isAdmin && <th className="py-4 px-4 font-black text-blue-400">Chave Pix de Destino</th>}
                         <th className="py-4 px-4 font-medium">Tipo</th>
-                        <th className="py-4 px-4 font-medium">Valor</th>
-                        <th className="py-4 px-4 font-medium">Status</th>
+                        <th className="py-4 px-4 font-medium">Descrição / Origem-Destino</th>
+                        <th className="py-4 px-4 font-medium text-right">Valor (R$)</th>
+                        {isAdmin && <th className="py-4 px-4 font-medium text-center">Ação</th>}
                       </tr>
                     </thead>
                     <tbody>
-                      {myInvestments.length === 0 ? (
-                        <tr><td colSpan="4" className="py-8 text-center text-muted">Nenhum investimento encontrado.</td></tr>
-                      ) : myInvestments.map(inv => (
-                        <tr key={inv.active_id} className="border-b border-white/5">
-                          <td className="py-4 px-4">{new Date(inv.invested_at).toLocaleDateString()}</td>
-                          <td className="py-4 px-4">Investimento</td>
-                          <td className="py-4 px-4 font-bold text-amber-500">R$ {Number(inv.invested_amount).toFixed(2)}</td>
-                          <td className="py-4 px-4">
-                            <span className="px-2 py-1 rounded-full bg-green-500/10 text-green-500 text-[10px] uppercase font-bold">{inv.status}</span>
+                      {(() => {
+                        let filtered = targetTransactions;
+                        if (reportsSubTab === 'deposits') filtered = filtered.filter(t => t.type === 'Depósito');
+                        if (reportsSubTab === 'withdrawals') filtered = filtered.filter(t => t.type === 'Saque');
+
+                        if (filtered.length === 0) {
+                          return <tr><td colSpan={isAdmin ? "7" : "4"} className="py-12 text-center text-muted">Nenhum registro encontrado nesta categoria.</td></tr>;
+                        }
+
+                        return filtered.map(t => {
+                        const tUser = isAdmin ? adminData.profiles.find(p => p.id === t.user_id) : null;
+                        const isConferred = t.is_conferred;
+
+                        return (
+                        <tr key={t.id} className={`border-b border-white/5 hover:bg-white/[0.01] transition-colors group ${isConferred ? 'opacity-40 grayscale-[0.5]' : ''}`}>
+                          <td className="py-5 px-4 text-xs text-muted group-hover:text-white transition-colors">
+                             <div className="flex items-center gap-2">
+                                <Clock size={12} className="opacity-50" />
+                                {new Date(t.created_at).toLocaleString('pt-BR')}
+                             </div>
+                             {isConferred && <p className="text-[8px] text-green-500 font-bold uppercase mt-1">✓ Conferido</p>}
                           </td>
+                          {isAdmin && (
+                            <td className="py-5 px-4 text-xs font-bold text-amber-500">
+                               {tUser?.full_name || 'Desconhecido'}
+                            </td>
+                          )}
+                          {isAdmin && (
+                            <td className="py-5 px-4 text-[10px] font-mono opacity-50">
+                               {tUser?.pix_key || '-'}
+                               <p className="text-[8px] text-muted italic">Origem: RecargaPay/Girafa</p>
+                            </td>
+                          )}
+                          <td className="py-5 px-4">
+                            <span className={`px-2 py-1 rounded-lg text-[9px] uppercase font-black tracking-widest ${
+                              t.type === 'Depósito' ? 'bg-amber-500/10 text-amber-500' : 
+                              t.type === 'Saque' ? 'bg-red-500/10 text-red-500' : 
+                              t.type === 'Lucro' ? 'bg-green-500/10 text-green-500' :
+                              t.type === 'Bônus' ? 'bg-purple-500/10 text-purple-500' : 
+                              'bg-white/10 text-muted'
+                            }`}>
+                              {t.type}
+                            </span>
+                          </td>
+                          <td className="py-5 px-4 text-sm font-light italic opacity-60 group-hover:opacity-100 transition-opacity">
+                             {t.description || '-'}
+                          </td>
+                          <td className={`py-5 px-4 font-bold text-right ${Number(t.amount) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                            {Number(t.amount) >= 0 ? '+' : ''} {Number(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </td>
+                          {isAdmin && (
+                            <td className="py-5 px-4 text-center">
+                               {!isConferred ? (
+                                 <button 
+                                   onClick={() => handleConferTransaction(t.id)}
+                                   className="bg-amber-500 text-black text-[9px] font-black px-3 py-2 rounded-lg hover:scale-105 transition-all border-none cursor-pointer uppercase shadow-[0_4px_10px_rgba(251,191,36,0.3)]"
+                                 >
+                                    Carimbar
+                                 </button>
+                               ) : (
+                                 <div className="flex items-center justify-center text-green-500 gap-1 opacity-50">
+                                    <CheckCircle2 size={14} />
+                                    <span className="text-[9px] font-bold">OK</span>
+                                 </div>
+                               )}
+                            </td>
+                          )}
                         </tr>
-                      ))}
+                      );
+                      });
+                      })()}
                     </tbody>
                   </table>
                 </div>
               </div>
+                  </>
+                );
+              })()}
             </motion.div>
           )}
 
@@ -1234,7 +1480,7 @@ const App = () => {
                 </div>
                 <div className="text-right glass-card px-8 py-5 border-amber-500/20 shadow-[0_0_30px_rgba(251,191,36,0.1)] w-full md:w-auto">
                   <span className="stat-label block mb-1">Saldo Total Girafa Bank</span>
-                  <span className="text-4xl font-bold text-amber-500 outfit">R$ {profile?.balance?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  <span className="text-4xl font-bold text-amber-500 outfit">R$ {(Number(profile?.balance) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                 </div>
               </div>
 
@@ -1335,14 +1581,36 @@ const App = () => {
                   <p className="text-xs text-muted mt-2">{adminData.loans.filter(l => l.status === 'Aprovado').length} empréstimos ativos</p>
                 </div>
                 <div className="glass-card p-6 border-purple-500/20">
-                  <h4 className="text-muted text-sm uppercase tracking-widest mb-2 font-bold opacity-70">Base de Clientes</h4>
-                  <div className="text-3xl font-bold outfit text-purple-400">
-                    {adminData.profiles.length} <span className="text-lg text-muted">Investidores</span>
+                  <h4 className="text-muted text-sm uppercase tracking-widest mb-2 font-bold opacity-70">Total Pago (Saques)</h4>
+                  <div className="text-3xl font-bold outfit text-red-400">
+                    R$ {adminData.allTransactions.filter(t => t.type === 'Saque').reduce((acc, t) => acc + Math.abs(Number(t.amount)), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </div>
+                  <p className="text-xs text-muted mt-2">{adminData.allTransactions.filter(t => t.type === 'Saque').length} resgates PIX</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* User Transactions (Universal Log) */}
+                <div className="glass-card p-6 border-white/5">
+                   <h4 className="outfit text-xl mb-4 text-green-400">Log de Operações Global</h4>
+                   <div className="overflow-y-auto max-h-[400px] pr-2 space-y-3">
+                      {adminData.allTransactions.map(t => {
+                         const user = adminData.profiles.find(p => p.id === t.user_id);
+                         return (
+                           <div key={t.id} className="flex justify-between items-center p-3 bg-white/5 rounded-xl border border-white/5 hover:bg-white/10 transition-colors">
+                              <div>
+                                 <p className="text-[10px] text-muted uppercase font-bold">{new Date(t.created_at).toLocaleString()}</p>
+                                 <p className="text-sm font-bold">{user?.full_name || 'Usuário'} <span className="text-xs font-normal opacity-50 px-2">| {t.type}</span></p>
+                                 <p className="text-[10px] italic opacity-40">{t.description}</p>
+                              </div>
+                              <div className={`text-right font-bold ${Number(t.amount) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                 {Number(t.amount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                              </div>
+                           </div>
+                         );
+                      })}
+                   </div>
+                </div>
                 {/* Pending Loans Table */}
                 <div className="glass-card p-6">
                   <h4 className="outfit text-xl mb-4 text-amber-500">Análise de Crédito</h4>
@@ -1399,6 +1667,8 @@ const App = () => {
           )}
           {activeTab === 'giralucky' && <GiraluckySection profile={profile} updateBalance={(nb) => setProfile(prev => ({...prev, balance: nb}))} showNotification={showNotification} />}
         </AnimatePresence>
+          </div>
+        )}
       </main>
 
       {/* Modals - Perfil, Pix, Investir */}
@@ -1517,19 +1787,41 @@ const App = () => {
 
               {modalType === 'sacar' && selectedInvestment && (
                 <div className="space-y-6">
-                  <h3 className="outfit text-2xl text-center">Confirmação de Resgate de Ativo</h3>
-                  <div className="space-y-4">
-                    <div className="flex justify-between text-sm"><span className="text-muted">Valor Principal</span><span>R$ {Number(selectedInvestment.invested_amount).toFixed(2)}</span></div>
-                    <div className="flex justify-between text-sm"><span className="text-muted">Rendimento Acumulado</span><span className="text-green-400">+ R$ {calculateAccruedEarnings(selectedInvestment).toFixed(2)}</span></div>
-                    <div className="flex justify-between text-sm text-red-400"><span className="opacity-70">Taxa de Saque (5%)</span><span>- R$ {((Number(selectedInvestment.invested_amount) + calculateAccruedEarnings(selectedInvestment)) * 0.05).toFixed(2)}</span></div>
-                    
-                    <div className="bg-white/5 p-6 rounded-2xl text-center border border-amber-500/20 mt-6">
-                      <p className="text-xs text-muted mb-1 opacity-60 uppercase tracking-widest">Valor Líquido a Receber</p>
-                      <p className="text-3xl font-bold text-amber-500 outfit">
-                        R$ {((Number(selectedInvestment.invested_amount) + calculateAccruedEarnings(selectedInvestment)) * 0.95).toFixed(2)}
-                      </p>
-                    </div>
-                  </div>
+                  {(() => {
+                    const progress = Number(calculateProgress(selectedInvestment.invested_at, selectedInvestment.validity));
+                    const isEndReached = progress >= 100;
+                    const accrued = calculateAccruedEarnings(selectedInvestment);
+                    const principal = Number(selectedInvestment.invested_amount);
+                    const isWithdrawBlocked = accrued <= 0 && !isEndReached;
+
+                    return (
+                      <>
+                        <h3 className="outfit text-2xl text-center">Resgatar Rendimentos</h3>
+                        <div className="space-y-4">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted">Capital Principal</span>
+                            <span className={isEndReached ? "text-green-500 font-bold" : "text-amber-500/50"}>
+                              R$ {principal.toFixed(2)} {isEndReached ? "(Liberado)" : "(Bloqueado)"}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted">Lucro Acruado</span>
+                            <span className="text-green-400 font-bold">+ R$ {accrued.toFixed(2)}</span>
+                          </div>
+                          
+                          <div className="bg-white/5 p-6 rounded-2xl text-center border border-amber-500/20 mt-6">
+                            <p className="text-xs text-muted mb-1 opacity-60 uppercase tracking-widest">
+                              {isEndReached ? "Valor Total para Saque" : "Lucro Disponível para Saque"}
+                            </p>
+                            <p className="text-3xl font-bold text-amber-500 outfit">
+                              R$ {(isEndReached ? (principal + accrued) : accrued).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+                            </p>
+                            <p className="text-[10px] text-muted mt-2 uppercase">Taxa de serviço 5% não inclusa</p>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
                   
                   <div className="bg-blue-500/10 p-4 rounded-xl flex items-center gap-4 text-xs text-blue-200 border border-blue-500/20">
                     <CheckCircle2 size={24} className="text-blue-500 shrink-0" />
@@ -1537,25 +1829,67 @@ const App = () => {
                     <strong className="text-white">{profile?.pix_key}</strong>
                   </div>
 
-                  {Number(calculateAccruedEarnings(selectedInvestment)) < 20 && (
-                    <div className="bg-red-500/10 border border-red-500/30 p-4 rounded-xl flex items-center gap-4 text-xs text-red-200">
-                      <AlertCircle size={24} className="text-red-500 shrink-0" />
-                      O saque só é permitido após atingir o lucro mínimo de R$ 20,00. Seu lucro atual é de R$ {Number(calculateAccruedEarnings(selectedInvestment)).toFixed(2)}.
-                    </div>
-                  )}
+                  {(() => {
+                    const accrued = calculateAccruedEarnings(selectedInvestment);
+                    const progress = Number(calculateProgress(selectedInvestment.invested_at, selectedInvestment.validity));
+                    const isEndReached = progress >= 100;
+                    const canWithdraw = accrued > 0 || isEndReached;
 
+                    return pixStatus === 'idle' ? (
+                      <button 
+                        onClick={() => handleSacar(selectedInvestment)} 
+                        disabled={!canWithdraw}
+                        className="primary-btn w-full justify-center py-4 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isEndReached ? 'Resgatar Capital + Lucro' : (accrued > 0 ? 'Resgatar Apenas Lucro' : 'Aguardando Rendimento')}
+                      </button>
+                    ) : (
+                      <div className="text-center py-6">
+                        <Loader2 className="animate-spin mx-auto text-amber-500 mb-4" size={32} />
+                        <p className="text-muted outfit uppercase tracking-widest text-xs">Aguarde... Salvando registro de saque</p>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {modalType === 'pix_withdraw' && (
+                <div className="text-center space-y-6">
+                  <h3 className="outfit text-2xl">Sacar para sua Conta</h3>
                   {pixStatus === 'idle' ? (
-                    <button 
-                      onClick={() => handleSacar(selectedInvestment)} 
-                      disabled={Number(calculateAccruedEarnings(selectedInvestment)) < 20}
-                      className="primary-btn w-full justify-center py-4 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {Number(calculateAccruedEarnings(selectedInvestment)) < 20 ? 'Lucro Mínimo não atingido' : 'Confirmar Saque na Nuvem'}
-                    </button>
+                    <>
+                      <div className="bg-white/5 p-6 rounded-2xl border border-white/5 mb-6">
+                         <p className="text-[10px] text-muted uppercase font-bold mb-2">Seu Saldo Disponível</p>
+                         <p className="text-3xl font-black text-amber-500">R$ {(Number(profile?.balance) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                      </div>
+
+                      <div className="flex flex-col gap-2">
+                         <label className="text-left text-xs text-muted">Quanto você deseja sacar? (R$)</label>
+                         <input type="number" value={pixAmount} onChange={(e) => setPixAmount(e.target.value)} placeholder="0,00" autoFocus />
+                         <p className="text-[10px] text-muted text-left mt-1">O valor será debitado e processado manualmente pela nossa equipe.</p>
+                      </div>
+                      
+                      <div className="bg-blue-500/10 p-4 rounded-xl flex items-center gap-4 text-xs text-blue-200 border border-blue-500/20 text-left">
+                        <CheckCircle2 size={24} className="text-blue-500 shrink-0" />
+                        <div>
+                           Destino: <strong>{profile?.pix_key || 'Chave não cadastrada'}</strong><br/>
+                           <span className="opacity-60 italic">Se a chave estiver errada, altere no seu perfil antes de sacar.</span>
+                        </div>
+                      </div>
+
+                      <button 
+                        onClick={handleWithdrawBalance} 
+                        disabled={!pixAmount || Number(pixAmount) <= 0 || Number(pixAmount) > profile?.balance} 
+                        className="secondary-btn w-full justify-center py-4 text-lg font-bold disabled:opacity-50 disabled:grayscale"
+                      >
+                         {Number(pixAmount) > profile?.balance ? 'Saldo Insuficiente' : 'Solicitar Saque via Pix'}
+                      </button>
+                    </>
                   ) : (
-                    <div className="text-center py-6">
-                      <Loader2 className="animate-spin mx-auto text-amber-500 mb-4" size={32} />
-                      <p className="text-muted outfit uppercase tracking-widest text-xs">Aguarde... Comunicando com a Nuvem</p>
+                    <div className="py-12">
+                       <Loader2 className="animate-spin mx-auto text-amber-500 mb-4" size={40} />
+                       <p className="outfit font-bold text-amber-500 animate-pulse">REGISTRANDO SOLICITAÇÃO...</p>
+                       <p className="text-xs text-muted mt-2">Sua solicitação de saque manual está sendo salva no sistema.</p>
                     </div>
                   )}
                 </div>
@@ -1615,32 +1949,7 @@ const AuthView = ({ onNotify }) => {
       });
       if (error) throw error;
 
-      // 2. Tentar buscar o telefone do usuário no Perfil para enviar WhatsApp Automático
-      const { data: prof, error: pErr } = await supabase
-        .from('profiles')
-        .select('phone_number')
-        .eq('email', cleanEmail) // Assumindo que temos o e-mail no profile ou buscamos via RPC
-        .maybeSingle();
-
-      // 3. Se tiver telefone, disparar Evolution API (Opcional, sem travar o e-mail)
-      if (prof?.phone_number) {
-        const cleanPhone = prof.phone_number.replace(/\D/g, '');
-        const msg = `🦒 *GIRAFA TECH - RECUPERAÇÃO* 🦒\n\nOlá! Recebemos um pedido de recuperação de senha para sua conta.\n\nE-mail: *${cleanEmail}*\n\nPor favor, verifique seu e-mail agora para clicar no link oficial de redefinição e voltar a lucrar! 🚀`;
-        
-        fetch('https://uncapitalized-hiedi-supermodest.ngrok-free.dev/message/sendText/MeuBot', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': '47b2030633301eea8876d1d08cdb6ef23b49a171770f240b25ec0be1be53d77d',
-            'ngrok-skip-browser-warning': 'true'
-          },
-          body: JSON.stringify({
-            number: cleanPhone,
-            text: msg
-          })
-        }).catch(e => console.error('Erro Evolution API (Local):', e));
-      }
-
+      // 2. Notificação (O Supabase lida com o e-mail oficial de redefinição)
       onNotify('Instruções de recuperação enviadas!');
       alert('SUCESSO: Enviamos as instruções para o seu e-mail e WhatsApp!');
     } catch (err) {
@@ -1859,7 +2168,7 @@ const AuthView = ({ onNotify }) => {
 
         {/* Debug Info para o Abel verificar a Chave */}
         <div className="mt-10 pt-4 border-t border-white/5 text-[8px] text-muted/30 font-mono text-center uppercase tracking-widest">
-           v1.4.3-STABLE
+           v1.5.0-REPORTS
         </div>
       </motion.div>
     </div>
