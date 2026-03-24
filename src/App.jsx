@@ -452,13 +452,27 @@ const App = () => {
     setLoading(true);
     try {
       // Fetch Profile (Tolerant to missing profile from bugged registrations)
-      const { data: prof, error: profErr } = await supabase
+      let { data: prof, error: profErr } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .maybeSingle();
       
-      if (profErr) console.warn('Aviso: Perfil não encontrado ou erro.', profErr);
+      if (!prof && !profErr) {
+        console.log('Perfil não encontrado. Realizando auto-cura...');
+        const { data: newProf, error: upsertErr } = await supabase
+          .from('profiles')
+          .upsert({ 
+            id: userId, 
+            full_name: user?.user_metadata?.full_name || 'Investidor Girafa', 
+            balance: 0 
+          })
+          .select()
+          .single();
+        if (!upsertErr) prof = newProf;
+      }
+
+      if (profErr) console.warn('Aviso: Erro ao buscar perfil.', profErr);
       setProfile(prof || { full_name: user?.user_metadata?.full_name || 'Investidor Girafa', balance: 0 });
 
       // Fetch Investment Options
