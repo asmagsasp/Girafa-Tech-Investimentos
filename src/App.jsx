@@ -464,8 +464,8 @@ const App = () => {
           .from('profiles')
           .upsert({ 
             id: userId, 
-            full_name: user?.user_metadata?.full_name || 'Investidor Girafa', 
-            balance: 0 
+            full_name: user?.user_metadata?.full_name || 'Investidor Girafa'
+            // O balance não é passado aqui para não resetar o saldo existente (usa o DEFAULT do BD se for novo)
           })
           .select()
           .single();
