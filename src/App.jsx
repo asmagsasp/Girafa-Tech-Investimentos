@@ -65,85 +65,190 @@ const SPONSOR_PROJECTS = [
   { id: 12, name: 'GioNails', desc: 'Landing Page Premium para Nail Designers', icon: Sparkles }
 ];
 
-const LandingPage = ({ onGetStarted }) => {
+const LandingPage = ({ onGetStarted, user }) => {
+  const [budgetForm, setBudgetForm] = useState({
+    name: '',
+    email: '',
+    whatsapp: '',
+    type: 'App Móvel',
+    desc: ''
+  });
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleBudgetSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.from('budgets').insert([{
+        user_id: user?.id || null,
+        full_name: budgetForm.name,
+        email: budgetForm.email,
+        whatsapp: budgetForm.whatsapp,
+        project_type: budgetForm.type,
+        description: budgetForm.desc
+      }]);
+      
+      if (error) throw error;
+      alert('🚀 Solicitação enviada com sucesso! Nossa equipe entrará em contato em breve.');
+      setBudgetForm({ name: '', email: '', whatsapp: '', type: 'App Móvel', desc: '' });
+    } catch (err) {
+      console.error('Budget error:', err);
+      alert('Ops! Erro ao enviar solicitação. Tente novamente.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
-    <div className="landing-container min-h-screen">
+    <div className="landing-container min-h-screen bg-black text-white selection:bg-amber-500/30">
+      {/* Background Decor */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none opacity-20">
+         <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-amber-500 rounded-full blur-[150px]" />
+         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-600 rounded-full blur-[150px]" />
+      </div>
+
       {/* Hero Section */}
-      <section className="hero-section">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-          <img src="/logo.png" className="w-24 h-auto mx-auto mb-8 shadow-2xl" alt="Girafa Tech" />
-          <h1 className="outfit text-5xl md:text-7xl font-bold mb-6 gradient-text">Girafa Tech</h1>
-          <p className="text-xl md:text-2xl text-muted max-w-2xl mx-auto mb-10 leading-relaxed font-light">
-            Inovação, Tecnologia e Gestão Inteligente de Ativos Digitais.
-          </p>
-          <div className="flex flex-col md:flex-row gap-6 justify-center">
-            <button onClick={onGetStarted} className="primary-btn px-10 py-5 text-xl font-bold">
-              Começar a Investir
-            </button>
-            <a href="#portfolio" className="btn-outline px-10 py-5 text-xl font-bold border-white/10 text-white flex items-center justify-center">
-              Ver Projetos
-            </a>
-          </div>
-        </motion.div>
-        
-        <motion.div 
-          animate={{ y: [0, 10, 0] }} 
-          transition={{ repeat: Infinity, duration: 2 }}
-          className="mt-20 text-muted opacity-30"
-        >
-          <ChevronDown size={32} />
+      <section className="relative min-h-screen flex items-center justify-center pt-20 pb-32 px-6">
+        <div className="max-w-6xl w-full text-center space-y-12 z-10">
+          <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.8 }}>
+            <div className="inline-block p-4 bg-white/5 rounded-3xl border border-white/10 mb-8 backdrop-blur-xl">
+               <img src="/logo.png" className="w-20 h-auto" alt="Girafa Tech" />
+            </div>
+          </motion.div>
+          
+          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+            <h1 className="outfit text-6xl md:text-9xl font-black mb-6 tracking-tighter leading-none uppercase">
+               Girafa <span className="text-amber-500">Tech</span> <br/>
+               <span className="text-muted-foreground opacity-50">Ecossistema</span>
+            </h1>
+            <p className="text-lg md:text-2xl text-muted max-w-3xl mx-auto mb-12 leading-relaxed font-light opacity-80">
+              Desenvolvemos hardware, software e automações de alto impacto. <br/>
+              A Girafa Tech é o hub de inovação do futuro, hoje.
+            </p>
+            
+            <div className="flex flex-col sm:flex-row gap-6 justify-center">
+              <button onClick={onGetStarted} className="primary-btn px-12 py-5 text-lg font-bold shadow-[0_0_30px_rgba(251,191,36,0.35)]">
+                 Acessar Minha Conta
+              </button>
+              <a href="#portfolio" className="btn-outline px-12 py-5 text-lg font-bold border-white/10 hover:bg-white/5 backdrop-blur-md">
+                 Nossos Projetos
+              </a>
+            </div>
+          </motion.div>
+        </div>
+
+        <motion.div animate={{ y: [0, 15, 0] }} transition={{ repeat: Infinity, duration: 2.5 }} className="absolute bottom-10 left-1/2 -translate-x-1/2 text-muted opacity-20">
+          <ChevronDown size={40} />
         </motion.div>
       </section>
 
-      {/* Portfolio Section */}
-      <section id="portfolio" className="py-20 px-6">
-        <h2 className="section-title">Nosso Ecossistema</h2>
-        <div className="project-grid">
+      {/* Stats Bar */}
+      <section className="relative z-10 py-12 border-y border-white/5 bg-white/[0.01] backdrop-blur-3xl">
+         <div className="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-12 text-center">
+            {[
+              { val: '20+', label: 'Projetos de Software' },
+              { val: 'R$ 2M+', label: 'Volume Transacionado' },
+              { val: '10k+', label: 'Linhas de Código' },
+              { val: '24h', label: 'Monitoramento Ativo' }
+            ].map((s, i) => (
+              <div key={i} className="space-y-1">
+                 <h4 className="text-3xl font-black outfit text-amber-500">{s.val}</h4>
+                 <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-bold opacity-60">{s.label}</p>
+              </div>
+            ))}
+         </div>
+      </section>
+
+      {/* Projects Showcase */}
+      <section id="portfolio" className="relative z-10 py-32 px-6 max-w-7xl mx-auto">
+        <div className="text-center mb-24 space-y-4">
+           <span className="text-amber-500 uppercase tracking-widest text-xs font-black">Nosso Portfólio</span>
+           <h2 className="outfit text-4xl md:text-6xl font-bold">Ecossistema de Inovação</h2>
+           <p className="text-muted max-w-2xl mx-auto opacity-70">Sistemas nativos, automações inteligentes e interfaces que encantam e convertem.</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {SPONSOR_PROJECTS.map((project, idx) => (
             <motion.div 
               key={project.id}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, scale: 0.95 }}
+              whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
-              transition={{ delay: idx * 0.1 }}
-              className="landing-project-card"
+              transition={{ delay: idx * 0.05 }}
+              className="group glass-card p-10 hover:border-amber-500/50 transition-all duration-500 cursor-default relative overflow-hidden"
             >
-              <div className="project-icon-wrapper">
-                {(() => {
-                  const Icon = project.icon;
-                  return <Icon size={30} />;
-                })()}
+              <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-20 transition-opacity">
+                {(() => { const Icon = project.icon; return <Icon size={100} />; })()}
               </div>
-              <h4 className="outfit">{project.name}</h4>
-              <p>{project.desc}</p>
+              <div className="bg-amber-500/10 w-16 h-16 rounded-2xl flex items-center justify-center mb-8 border border-amber-500/20 group-hover:bg-amber-500 group-hover:text-black transition-all">
+                {(() => { const Icon = project.icon; return <Icon size={32} />; })()}
+              </div>
+              <h4 className="outfit text-2xl font-bold mb-4">{project.name}</h4>
+              <p className="text-muted-foreground text-sm leading-relaxed mb-6 opacity-80 group-hover:opacity-100">{project.desc}</p>
+              <div className="flex gap-2">
+                 <span className="bg-white/5 border border-white/10 px-3 py-1 rounded-full text-[8px] font-black uppercase opacity-60">ATIVO</span>
+                 <span className="bg-blue-500/20 border border-blue-500/20 text-blue-400 px-3 py-1 rounded-full text-[8px] font-black uppercase">v2.0</span>
+              </div>
             </motion.div>
           ))}
         </div>
       </section>
 
-      {/* Trust Section */}
-      <section className="py-20 bg-white/[0.02] border-y border-white/5">
-        <div className="max-w-4xl mx-auto text-center px-6">
-          <h2 className="outfit text-4xl font-bold mb-8">Por que investir conosco?</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-            <div>
-              <div className="text-amber-500 font-bold text-4xl mb-2">12+</div>
-              <p className="text-muted uppercase text-xs tracking-widest">Projetos Ativos</p>
+      {/* Budget Form Section */}
+      <section className="relative z-10 py-32 px-6 bg-gradient-to-b from-transparent to-black/80">
+         <div className="max-w-5xl mx-auto">
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-16 items-center">
+               <div className="lg:col-span-2 space-y-8">
+                  <h2 className="outfit text-5xl font-bold leading-tight uppercase tracking-tighter">
+                     Sua Ideia <br/> <span className="text-amber-500 underline decoration-white/10 decoration-8">Nossa Tecnologia</span>
+                  </h2>
+                  <p className="text-muted leading-relaxed opacity-80">
+                     A Girafa Tech aceita contratos para desenvolvimento de softwares sob demanda. <br/><br/>
+                     Seja um aplicativo nativo para iOS/Android, um sistema Web 3.0 de alta escala ou automação de processos, nosso time de engenharia está pronto para o desafio.
+                  </p>
+                  <div className="space-y-4">
+                     <div className="flex items-center gap-4 text-sm opacity-60 hover:opacity-100 transition-opacity"><CheckCircle2 className="text-green-500"/> Consultoria de Produto</div>
+                     <div className="flex items-center gap-4 text-sm opacity-60 hover:opacity-100 transition-opacity"><CheckCircle2 className="text-green-500"/> UI/UX de Alta Fidelidade</div>
+                     <div className="flex items-center gap-4 text-sm opacity-60 hover:opacity-100 transition-opacity"><CheckCircle2 className="text-green-500"/> Suporte e Manutenção Vitalícia</div>
+                  </div>
+               </div>
+
+               <div className="lg:col-span-3">
+                  <motion.div 
+                    initial={{ opacity: 0, x: 50 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    className="glass-card p-10 border-amber-500/20 shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
+                  >
+                     <p className="text-muted uppercase text-[10px] tracking-widest font-black mb-6">Solicitar Orçamento</p>
+                     <form onSubmit={handleBudgetSubmit} className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                           <input type="text" placeholder="Seu Nome" required value={budgetForm.name} onChange={e => setBudgetForm({...budgetForm, name: e.target.value})} className="bg-white/5 border border-white/10 p-4 rounded-xl text-sm" />
+                           <input type="email" placeholder="E-mail" required value={budgetForm.email} onChange={e => setBudgetForm({...budgetForm, email: e.target.value})} className="bg-white/5 border border-white/10 p-4 rounded-xl text-sm" />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                           <input type="tel" placeholder="WhatsApp (DDD)" required value={budgetForm.whatsapp} onChange={e => setBudgetForm({...budgetForm, whatsapp: e.target.value})} className="bg-white/5 border border-white/10 p-4 rounded-xl text-sm" />
+                           <select value={budgetForm.type} onChange={e => setBudgetForm({...budgetForm, type: e.target.value})} className="bg-white/5 border border-white/10 p-4 rounded-xl text-sm text-white">
+                              <option className="bg-zinc-900" value="App Móvel">Aplicativo Móvel</option>
+                              <option className="bg-zinc-900" value="Web Site">Plataforma Web</option>
+                              <option className="bg-zinc-900" value="Automação">Automação/Bot</option>
+                              <option className="bg-zinc-900" value="Outros">Outros Projetos</option>
+                           </select>
+                        </div>
+                        <textarea placeholder="Fale um pouco sobre o projeto..." rows="4" required value={budgetForm.desc} onChange={e => setBudgetForm({...budgetForm, desc: e.target.value})} className="w-full bg-white/5 border border-white/10 p-4 rounded-xl text-sm outline-none focus:border-amber-500/50" />
+                        
+                        <button type="submit" disabled={submitting} className="primary-btn w-full justify-center py-5 text-lg shadow-[0_10px_30px_rgba(251,191,36,0.3)]">
+                           {submitting ? <Loader2 className="animate-spin" /> : 'Convocar a Girafa Tech'}
+                        </button>
+                        <p className="text-[10px] text-muted text-center opacity-40">Ao enviar, sua solicitação será registrada e analisada pelo Abel.</p>
+                     </form>
+                  </motion.div>
+               </div>
             </div>
-            <div>
-              <div className="text-blue-500 font-bold text-4xl mb-2">100%</div>
-              <p className="text-muted uppercase text-xs tracking-widest">Segurança Pix</p>
-            </div>
-            <div>
-              <div className="text-green-500 font-bold text-4xl mb-2">24/7</div>
-              <p className="text-muted uppercase text-xs tracking-widest">Gestão em Nuvem</p>
-            </div>
-          </div>
-        </div>
+         </div>
       </section>
 
-      <footer className="footer-lp">
-        <p>© 2026 Girafa Tech | Investimentos & Tecnologia • Todos os direitos reservados</p>
+      <footer className="relative z-10 py-16 px-6 border-t border-white/5 text-center">
+        <p className="text-muted-foreground text-sm font-light opacity-50 tracking-widest uppercase">© 2026 Girafa Tech • Elite Software Development • Girafa Bank Division</p>
       </footer>
     </div>
   );
@@ -440,6 +545,7 @@ const App = () => {
           const userMail = sess.user.email.toLowerCase();
           console.log('Login Detectado:', userMail);
           const isUserAdmin = ['admin@girafatech.com', 'abel@girafatech.com', 'abel.souza.magalhaes@hotmail.com', 'asmagsasp@gmail.com'].includes(userMail);
+          console.log('Is Admin:', isUserAdmin);
           setIsAdmin(isUserAdmin);
           fetchUserData(sess.user.id, sess.user);
           
@@ -548,8 +654,13 @@ const App = () => {
       // Fetch Admin Data
       const adminEmails = ['admin@girafatech.com', 'abel@girafatech.com', 'abel.souza.magalhaes@hotmail.com', 'asmagsasp@gmail.com'];
       const userToVerify = currentUser || user;
-      if (adminEmails.includes(userToVerify?.email?.toLowerCase())) {
-         const { data: allP } = await supabase.from('profiles').select('*');
+      const userMailStr = userToVerify?.email?.toLowerCase() || '';
+      console.log('Verificando Acesso Admin para:', userMailStr);
+      if (adminEmails.includes(userMailStr)) {
+         console.log('Buscando dados globais para administrador...');
+         const { data: allP, error: pErr } = await supabase.from('profiles').select('*');
+         if (pErr) console.error('Erro RLS Perfis:', pErr);
+         else console.log('Perfis encontrados:', allP?.length || 0);
          const { data: allL } = await supabase.from('loans').select('*').order('created_at', { ascending: false });
          const { data: allI } = await supabase.from('user_investments').select('*').order('invested_at', { ascending: false });
          const { data: allT } = await supabase.from('transactions').select('*').order('created_at', { ascending: false });
@@ -1090,7 +1201,7 @@ const App = () => {
 
   // Se o usuário quer ver a landing (ou não está logado e showLanding é true)
   if (showLanding && !session) {
-    return <LandingPage onGetStarted={() => setShowLanding(false)} />;
+    return <LandingPage onGetStarted={() => setShowLanding(false)} user={user} />;
   }
   
   // Removido o bloco de retorno antecipado da Landing Page para session.
@@ -1195,7 +1306,7 @@ const App = () => {
       <main className="main-content">
         {showLanding ? (
            <div className="animate-in -mt-10 -ml-10 -mr-10 h-full" key="landing">
-             <LandingPage onGetStarted={() => setShowLanding(false)} />
+              <LandingPage onGetStarted={() => setShowLanding(false)} user={user} />
            </div>
         ) : (
           <div key="dashboard-shell" className="animate-in">
