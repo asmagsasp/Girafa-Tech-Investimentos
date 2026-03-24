@@ -1721,13 +1721,18 @@ const AuthView = ({ onNotify }) => {
           throw error;
         }
         
-        // --- NOVO: Lógica de Afiliados (Bônus de Indicação) ---
+        // --- NOVO: Lógica de Afiliados (Bônus de Indicação com Validação UUID) ---
         const savedRef = localStorage.getItem('girafa_ref');
-        if (savedRef && data?.user?.id) {
+        const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
+        if (savedRef && isUUID(savedRef) && data?.user?.id) {
            try {
              await supabase.from('profiles').update({ referred_by: savedRef }).eq('id', data.user.id);
              localStorage.removeItem('girafa_ref');
-           } catch(e) { console.error('Afiliado Err', e); }
+           } catch(e) { console.error('Afiliado Err (UUID Inválido ou Erro DB)', e); }
+        } else if (savedRef) {
+           console.warn('Indicação ignorada: O código não é um UUID válido.');
+           localStorage.removeItem('girafa_ref');
         }
 
         onNotify('Verifique seu e-mail para confirmar!');
