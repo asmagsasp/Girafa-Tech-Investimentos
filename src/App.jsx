@@ -444,6 +444,11 @@ const App = () => {
                              userMail === 'abel.souza.magalhaes@hotmail.com';
           setIsAdmin(isUserAdmin);
           fetchUserData(sess.user.id, sess.user);
+          
+          // Trigger lazy auto-liquidation of loans if admin or user loads
+          supabase.rpc('process_loan_liquidation').then(({data, error}) => {
+             if (data?.processed > 0) console.log('Liquidação Automática Realizada:', data);
+          });
         }
       } else {
         setLoading(false);
@@ -1006,6 +1011,76 @@ const App = () => {
     }
   };
 
+  const handleCreateLoanAdmin = async (targetUserId, amount, installments, description) => {
+    try {
+      const monthly = (amount * Math.pow(1.05, installments)) / installments;
+      const total = monthly * installments;
+
+      // 1. Create the Loan record
+      const { data: loan, error: loanErr } = await supabase.from('loans').insert([{
+        user_id: targetUserId,
+        amount: Number(amount),
+        installments: Number(installments),
+        monthly_payment: monthly,
+        total_payment: total,
+        status: 'Aprovado',
+        description: description,
+        approved_at: new Date().toISOString()
+      }]).select().single();
+
+      if (loanErr) throw loanErr;
+
+      // 2. Generate Installments (Carnê)
+      const installmentRecords = [];
+      for (let i = 1; i <= installments; i++) {
+        const dueDate = new Date();
+        dueDate.setMonth(dueDate.getMonth() + i);
+        
+        installmentRecords.push({
+          loan_id: loan.id,
+          user_id: targetUserId,
+          installment_number: i,
+          amount: monthly,
+          due_date: dueDate.toISOString().split('T')[0],
+          status: 'Pendente'
+        });
+      }
+
+      const { error: instErr } = await supabase.from('loan_installments').insert(installmentRecords);
+      if (instErr) throw instErr;
+
+      // 3. Add Balance to User (The loan payout)
+      await supabase.rpc('handle_balance_change', {
+        user_id_param: targetUserId,
+        amount_param: Number(amount),
+        type_param: 'Depósito',
+        desc_param: `Empréstimo Liberado: ${description}`
+      });
+
+      showNotification('Empréstimo e Carnê gerados com sucesso!');
+      fetchUserData(user.id);
+    } catch (err) {
+      console.error('Erro ao gerar empréstimo:', err);
+      showNotification('Erro ao processar empréstimo admin.', 'error');
+    }
+  };
+
+  const [installments, setInstallments] = useState([]);
+  // Fetch installments when activeTab is girafa_bank
+  useEffect(() => {
+    if (activeTab === 'girafa_bank' && user) {
+      const fetchInvs = async () => {
+        const { data } = await supabase
+          .from('loan_installments')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('due_date', { ascending: true });
+        setInstallments(data || []);
+      };
+      fetchInvs();
+    }
+  }, [activeTab, user]);
+
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-black">
       <div className="text-center space-y-4">
@@ -1475,84 +1550,139 @@ const App = () => {
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-8">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
                 <div>
-                  <h3 className="outfit text-3xl font-bold mb-2">Girafa Bank <span className="text-amber-500 text-lg font-normal">| Empréstimo Fácil</span></h3>
-                  <p className="text-muted">Acesso exclusivo à liquidez administrativa com taxas competitivas.</p>
+                  <h3 className="outfit text-3xl font-bold mb-2">Girafa Bank <span className="text-amber-500 text-lg font-normal">| Crédito Inteligente</span></h3>
+                  <p className="text-muted">{isAdmin ? 'Gestão Administrativa de Crédito e Liquidez.' : 'Acesse seu carnê e controle suas parcelas.'}</p>
                 </div>
-                <div className="text-right glass-card px-8 py-5 border-amber-500/20 shadow-[0_0_30px_rgba(251,191,36,0.1)] w-full md:w-auto">
-                  <span className="stat-label block mb-1">Saldo Total Girafa Bank</span>
-                  <span className="text-4xl font-bold text-amber-500 outfit">R$ {(Number(profile?.balance) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[500, 1000, 1500, 2000, 2500].map((val) => {
-                  const total = val * Math.pow(1.05, 5);
-                  const parcel = (total / 5).toFixed(2);
-                  return (
-                    <div key={val} className="glass-card p-6 border-amber-500/10 hover:border-amber-500/40 relative overflow-hidden group transition-all">
-                      <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-20 transition-opacity">
-                        <Landmark size={80} className="text-amber-500" />
-                      </div>
-                      <h4 className="text-muted uppercase text-[10px] tracking-widest mb-2 font-bold opacity-70">Crédito Disponível</h4>
-                      <div className="text-3xl font-bold mb-6 outfit">R$ {val.toLocaleString()}</div>
-                      
-                      <div className="space-y-3 mb-8 bg-white/5 p-4 rounded-xl border border-white/5">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-muted">Taxa de Juros</span>
-                          <span className="text-green-400 font-bold">5% am (Compostos)</span>
-                        </div>
-                        <div className="flex justify-between text-xs">
-                          <span className="text-muted">Parcelamento</span>
-                          <span className="font-bold">5x Meses</span>
-                        </div>
-                        <div className="flex justify-between text-lg mt-3 pt-3 border-t border-amber-500/20">
-                          <span className="font-semibold outfit text-sm">Valor Parcela</span>
-                          <span className="text-amber-400 font-bold">R$ {parcel}</span>
-                        </div>
-                      </div>
-
-                      <button 
-                        onClick={() => handleRequestLoan(val, 5)}
-                        className="primary-btn w-full justify-center py-3 font-bold group-hover:shadow-[0_0_15px_rgba(251,191,36,0.3)] transition-all"
-                      >
-                        Pegar emprestado com juros
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-              
-              {loans.length > 0 && (
-                <div className="glass-card p-8 mt-8">
-                  <h3 className="outfit text-xl mb-6">Meus Pedidos de Crédito</h3>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-sm">
-                      <thead>
-                        <tr className="border-b border-white/10 text-muted uppercase">
-                          <th className="py-3 px-4">Solicitado em</th>
-                          <th className="py-3 px-4">Valor</th>
-                          <th className="py-3 px-4">Parcelas</th>
-                          <th className="py-3 px-4">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {loans.map(loan => (
-                          <tr key={loan.id} className="border-b border-white/5">
-                            <td className="py-3 px-4">{new Date(loan.created_at).toLocaleDateString()}</td>
-                            <td className="py-3 px-4 text-amber-500 font-bold">R$ {Number(loan.amount).toFixed(2)}</td>
-                            <td className="py-3 px-4">{loan.installments}x de R$ {Number(loan.monthly_payment).toFixed(2)}</td>
-                            <td className="py-3 px-4">
-                              <span className={`px-2 py-1 rounded-full text-[10px] uppercase font-bold 
-                                ${loan.status === 'Aprovado' ? 'bg-green-500/10 text-green-500' : 
-                                  loan.status === 'Rejeitado' ? 'bg-red-500/10 text-red-500' : 'bg-amber-500/10 text-amber-500'}`}>
-                                {loan.status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                {!isAdmin && (
+                  <div className="text-right glass-card px-8 py-5 border-amber-500/20 shadow-[0_0_30px_rgba(251,191,36,0.1)] w-full md:w-auto">
+                    <span className="stat-label block mb-1">Seu Saldo Disponível</span>
+                    <span className="text-3xl font-black text-amber-500 outfit">R$ {(Number(profile?.balance) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                   </div>
+                )}
+              </div>
+
+              {isAdmin ? (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* Admin: Create Loan Form */}
+                  <div className="lg:col-span-1 space-y-6">
+                    <div className="glass-card p-8 border-amber-500/30">
+                       <h4 className="outfit text-xl mb-6 text-amber-500 flex items-center gap-2"><PlusCircle size={20}/> Conceder Crédito</h4>
+                       <form onSubmit={(e) => {
+                         e.preventDefault();
+                         const fd = new FormData(e.target);
+                         handleCreateLoanAdmin(fd.get('target_user'), fd.get('amount'), fd.get('installments'), fd.get('desc'));
+                         e.target.reset();
+                       }} className="space-y-4">
+                          <div className="flex flex-col gap-1">
+                             <label className="text-[10px] text-muted uppercase font-bold">Selecionar Cliente</label>
+                             <select name="target_user" required className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm text-white">
+                                <option value="">Escolha um usuário...</option>
+                                {adminData.profiles.map(p => (
+                                  <option key={p.id} value={p.id}>{p.full_name} (R$ {Number(p.balance).toFixed(2)})</option>
+                                ))}
+                             </select>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                             <label className="text-[10px] text-muted uppercase font-bold">Valor do Empréstimo (R$)</label>
+                             <input type="number" name="amount" required placeholder="Ex: 1000" />
+                          </div>
+                          <div className="flex flex-col gap-1">
+                             <label className="text-[10px] text-muted uppercase font-bold">Quantidade de Parcelas</label>
+                             <select name="installments" className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm text-white">
+                                {[3, 5, 10, 12, 18, 24].map(n => <option key={n} value={n}>{n}x Meses (Taxa 5% am)</option>)}
+                             </select>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                             <label className="text-[10px] text-muted uppercase font-bold">Descrição/Motivo</label>
+                             <input type="text" name="desc" placeholder="Ex: Expansão de banca" />
+                          </div>
+                          <button type="submit" className="primary-btn w-full justify-center py-4 mt-2">Liberar Crédito Agora</button>
+                       </form>
+                    </div>
+                  </div>
+
+                  {/* Admin: Global Loan View */}
+                  <div className="lg:col-span-2 space-y-6">
+                    <div className="glass-card p-8">
+                       <h4 className="outfit text-xl mb-6">Contratos Ativos</h4>
+                       <div className="overflow-x-auto">
+                          <table className="w-full text-left text-sm">
+                             <thead>
+                                <tr className="border-b border-white/10 text-muted uppercase text-[10px]">
+                                   <th className="py-3">Cliente</th>
+                                   <th className="py-3">Total</th>
+                                   <th className="py-3">Parcelamento</th>
+                                   <th className="py-3">Status</th>
+                                </tr>
+                             </thead>
+                             <tbody>
+                                {adminData.loans.length === 0 && <tr><td colSpan="4" className="py-8 text-center text-muted">Nenhum contrato gerado.</td></tr>}
+                                {adminData.loans.map(loan => {
+                                  const u = adminData.profiles.find(p => p.id === loan.user_id);
+                                  return (
+                                    <tr key={loan.id} className="border-b border-white/5 hover:bg-white/[0.01]">
+                                       <td className="py-4">
+                                          <p className="font-bold">{u?.full_name || 'Desconhecido'}</p>
+                                          <p className="text-[10px] text-muted">{loan.description}</p>
+                                       </td>
+                                       <td className="py-4 text-amber-500 font-bold">R$ {Number(loan.total_payment).toFixed(2)}</td>
+                                       <td className="py-4">{loan.installments}x de R$ {Number(loan.monthly_payment).toFixed(2)}</td>
+                                       <td className="py-4">
+                                          <span className="px-2 py-1 bg-green-500/10 text-green-500 rounded-full text-[10px] font-bold uppercase">{loan.status}</span>
+                                       </td>
+                                    </tr>
+                                  );
+                                })}
+                             </tbody>
+                          </table>
+                       </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-8">
+                   <div className="glass-card p-10 border-blue-500/20 relative overflow-hidden">
+                      <div className="absolute top-0 right-0 p-10 opacity-5"><Landmark size={120} /></div>
+                      <h4 className="outfit text-2xl mb-2">Meu Carnê Girafa Bank</h4>
+                      <p className="text-muted mb-8 text-sm">Abaixo estão as parcelas do seu empréstimo. O pagamento é realizado automaticamente debitando do seu saldo no dia do vencimento.</p>
+                      
+                      {installments.length === 0 ? (
+                        <div className="py-12 text-center bg-white/5 rounded-2xl border border-dashed border-white/10">
+                           <p className="text-muted">Você não possui parcelas pendentes no momento.</p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                           {installments.map(inst => (
+                             <div key={inst.id} className={`p-5 rounded-2xl border ${inst.status === 'Pago' ? 'bg-green-500/5 border-green-500/20' : 'bg-white/5 border-white/10'}`}>
+                                <div className="flex justify-between items-start mb-4">
+                                   <span className="text-[10px] uppercase font-bold text-muted">Parcela {inst.installment_number}</span>
+                                   <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase ${inst.status === 'Pago' ? 'bg-green-500 text-black' : (new Date(inst.due_date) < new Date() ? 'bg-red-500 text-white' : 'bg-amber-500 text-black')}`}>
+                                      {inst.status === 'Pago' ? 'Paga' : (new Date(inst.due_date) < new Date() ? 'Atrasada' : 'Pendente')}
+                                   </span>
+                                </div>
+                                <p className="text-xl font-bold mb-1">R$ {Number(inst.amount).toFixed(2)}</p>
+                                <p className="text-[10px] text-muted flex items-center gap-1"><Calendar size={10}/> Vence em: {new Date(inst.due_date).toLocaleDateString()}</p>
+                                {inst.status === 'Pago' && <p className="text-[8px] text-green-500 font-bold mt-2 flex items-center gap-1"><CheckCircle2 size={8}/> Liquidado via Saldo</p>}
+                             </div>
+                           ))}
+                        </div>
+                      )}
+                   </div>
+
+                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="glass-card p-6 bg-amber-500/5 border-amber-500/10">
+                         <h5 className="font-bold mb-2 flex items-center gap-2"><CreditCard size={16}/> Pagamento Automático</h5>
+                         <p className="text-xs text-muted leading-relaxed">Não se preocupe com boletos. No dia do vencimento, nosso sistema verifica seu saldo e quita a parcela automaticamente.</p>
+                      </div>
+                      <div className="glass-card p-6 bg-blue-500/5 border-blue-500/10">
+                         <h5 className="font-bold mb-2 flex items-center gap-2"><TrendingUp size={16}/> Impacto no Score</h5>
+                         <p className="text-xs text-muted leading-relaxed">Manter suas parcelas em dia aumenta seu limite de crédito futuro e sua reputação na rede Girafa Tech.</p>
+                      </div>
+                      <div className="glass-card p-6 bg-purple-500/5 border-purple-500/10">
+                         <h5 className="font-bold mb-2 flex items-center gap-2"><Shield size={16}/> Segurança de Dados</h5>
+                         <p className="text-xs text-muted leading-relaxed">Todos os contratos são registrados com criptografia e visíveis apenas para você e a auditoria administrativa.</p>
+                      </div>
+                   </div>
                 </div>
               )}
             </motion.div>
