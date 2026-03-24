@@ -960,7 +960,7 @@ const App = () => {
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 animate-in">
           <div>
             <h2 className="text-3xl font-bold outfit mb-1 text-white">
-              Olá Investidor, {profile?.full_name?.split(' ')[0] || user?.user_metadata?.full_name?.split(' ')[0] || 'Girafa'}!
+              Olá Investidor, {profile?.full_name?.split(' ')[0] || user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'Girafa'}!
             </h2>
             <p className="text-muted">Gestão inteligente do seu capital em nuvem.</p>
           </div>
@@ -1812,7 +1812,7 @@ const AuthView = ({ onNotify }) => {
 
         {/* Debug Info para o Abel verificar a Chave */}
         <div className="mt-10 pt-4 border-t border-white/5 text-[8px] text-muted/30 font-mono text-center uppercase tracking-widest">
-           v1.1.0-STABLE
+           v1.4.3-STABLE
         </div>
       </motion.div>
     </div>
