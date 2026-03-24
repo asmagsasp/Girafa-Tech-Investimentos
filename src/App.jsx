@@ -439,9 +439,7 @@ const App = () => {
         if (sess?.user?.email) {
           const userMail = sess.user.email.toLowerCase();
           console.log('Login Detectado:', userMail);
-          const isUserAdmin = userMail === 'admin@girafatech.com' || 
-                             userMail === 'abel@girafatech.com' || 
-                             userMail === 'abel.souza.magalhaes@hotmail.com';
+          const isUserAdmin = ['admin@girafatech.com', 'abel@girafatech.com', 'abel.souza.magalhaes@hotmail.com', 'asmagsasp@gmail.com'].includes(userMail);
           setIsAdmin(isUserAdmin);
           fetchUserData(sess.user.id, sess.user);
           
@@ -548,7 +546,7 @@ const App = () => {
       setReferralLink(`${window.location.origin}/?ref=${userId}`);
 
       // Fetch Admin Data
-      const adminEmails = ['admin@girafatech.com', 'abel@girafatech.com', 'abel.souza.magalhaes@hotmail.com'];
+      const adminEmails = ['admin@girafatech.com', 'abel@girafatech.com', 'abel.souza.magalhaes@hotmail.com', 'asmagsasp@gmail.com'];
       const userToVerify = currentUser || user;
       if (adminEmails.includes(userToVerify?.email?.toLowerCase())) {
          const { data: allP } = await supabase.from('profiles').select('*');
