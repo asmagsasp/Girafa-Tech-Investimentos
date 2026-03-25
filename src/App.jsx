@@ -1287,6 +1287,19 @@ const App = () => {
           <button onClick={() => { setActiveTab('dashboard'); setShowLanding(false); }} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'dashboard' && !showLanding ? 'active' : ''}`}>
             <LayoutDashboard size={20} /> Tela Inicial
           </button>
+          
+          {installments && installments.length > 0 && (
+            <button 
+              onClick={() => { 
+                setActiveTab('dashboard'); 
+                setShowLanding(false); 
+                setTimeout(() => document.getElementById('meu-carne-section')?.scrollIntoView({ behavior: 'smooth' }), 100); 
+              }} 
+              className="nav-link w-full border-none cursor-pointer text-left border-blue-500/20 bg-blue-500/5 hover:bg-blue-600 hover:text-white mb-2 text-blue-400 font-bold"
+            >
+              <Calendar size={20} /> Meu Carnê Girafa
+            </button>
+          )}
 
           <button onClick={() => { setActiveTab('reports'); setShowLanding(false); }} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'reports' ? 'active' : ''}`}>
             <RotateCcw size={20} className="text-green-500" /> 
@@ -1429,11 +1442,11 @@ const App = () => {
                   ))}
                 </div>
 
-                {/* Se não for admin e tiver parcelas, mostrar o Carnê no Dashboard */}
-                {!isAdmin && installments && installments.length > 0 && (
-                  <div className="mt-12 space-y-6">
+                {/* Se tiver parcelas, mostrar o Carnê no Dashboard (qualquer usuário, inclusive Admin) */}
+                {installments && installments.length > 0 && (
+                  <div id="meu-carne-section" className="mt-12 space-y-6 scroll-mt-20">
                      <div className="flex items-center gap-3">
-                        <div className="w-1.5 h-6 bg-blue-500 rounded-full" />
+                        <div className="w-1.5 h-6 bg-amber-500 rounded-full" />
                         <h4 className="outfit text-xl">Meu Carnê Girafa Bank</h4>
                      </div>
                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
