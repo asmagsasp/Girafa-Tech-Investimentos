@@ -496,7 +496,7 @@ const App = () => {
   const [myInvestments, setMyInvestments] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [loans, setLoans] = useState([]);
-  const [adminData, setAdminData] = useState({ profiles: [], loans: [], allInvestments: [], allTransactions: [] });
+  const [adminData, setAdminData] = useState({ profiles: [], loans: [], allInvestments: [], allTransactions: [], allInstallments: [] });
   const [referralLink, setReferralLink] = useState('');
   
   // Modal & Form States
@@ -507,6 +507,7 @@ const App = () => {
   const [pixAmount, setPixAmount] = useState('');
   const [pixRecipient, setPixRecipient] = useState('');
   const [pixStatus, setPixStatus] = useState('idle');
+  const [installments, setInstallments] = useState([]);
 
   // Hooks de Cálculo
   const calculateProgress = React.useCallback((investedAt, validity) => {
@@ -661,6 +662,15 @@ const App = () => {
 
       setReferralLink(`${window.location.origin}/?ref=${userId}`);
 
+      // Fetch User Installments (Carnê)
+      const { data: instData } = await supabase
+        .from('loan_installments')
+        .select('*')
+        .eq('user_id', userId)
+        .order('due_date', { ascending: true });
+      setInstallments(instData || []);
+
+
       // Fetch Admin Data
       const adminEmails = ['admin@girafatech.com', 'abel@girafatech.com', 'abel.souza.magalhaes@hotmail.com', 'asmagsasp@gmail.com'];
       const userToVerify = currentUser || user;
@@ -675,12 +685,14 @@ const App = () => {
          const { data: allI } = await supabase.from('user_investments').select('*').order('invested_at', { ascending: false });
          const { data: allT } = await supabase.from('transactions').select('*').order('created_at', { ascending: false });
          const { data: allB } = await supabase.from('budgets').select('*').order('created_at', { ascending: false });
+         const { data: allIns } = await supabase.from('loan_installments').select('*').order('due_date', { ascending: false });
          setAdminData({ 
            profiles: allP || [], 
            loans: allL || [], 
            allInvestments: allI || [],
            allTransactions: allT || [],
-           budgets: allB || []
+           budgets: allB || [],
+           allInstallments: allIns || []
          });
       }
 
@@ -1092,6 +1104,74 @@ const App = () => {
     }
   };
 
+  const handleAdminLiquidateInstallment = async (instId, userId, instAmount) => {
+    if (!window.confirm(`Confirmar liquidação forçada da parcela de R$ ${instAmount.toFixed(2)}? Se necessário, investimentos ativos serão liquidados primeiro para cobrir o débito.`)) return;
+    
+    try {
+      // 1. Get current balance
+      const targetProfile = adminData.profiles.find(p => p.id === userId);
+      let currentBalance = Number(targetProfile?.balance || 0);
+
+      // 2. If balance < installment amount, liquidate investments
+      if (currentBalance < instAmount) {
+        // Find user's active investments
+        const { data: userInvs } = await supabase.from('user_investments').select('*').eq('user_id', userId);
+        
+        if (userInvs && userInvs.length > 0) {
+          for (const inv of userInvs) {
+            if (currentBalance >= instAmount) break;
+            
+            const progress = Number(calculateProgress(inv.invested_at, inv.validity));
+            const isEndReached = progress >= 100;
+            const accrued = calculateAccruedEarnings(inv);
+            const principal = Number(inv.invested_amount);
+            
+            // Value to liquidate (Principal + Accrued)
+            const valToLiq = principal + accrued;
+            
+            // Liquidate via RPC
+            const { data: nBal, error: liqErr } = await supabase.rpc('handle_balance_change', {
+              user_id_param: userId,
+              amount_param: valToLiq,
+              type_param: 'Lucro',
+              desc_param: `Liquidação Forçada p/ Crédito #${inv.active_id.slice(0,8)}`
+            });
+            
+            if (!liqErr) {
+              currentBalance = Number(nBal);
+              await supabase.from('user_investments').delete().eq('active_id', inv.active_id);
+            }
+          }
+        }
+      }
+
+      // 3. Try to pay the installment
+      if (currentBalance >= instAmount) {
+        const { data: finalBal, error: payErr } = await supabase.rpc('handle_balance_change', {
+          user_id_param: userId,
+          amount_param: -instAmount,
+          type_param: 'Pagamento',
+          desc_param: `Quitação de Carnê #${instId.slice(0,8)}`
+        });
+        
+        if (!payErr) {
+          await supabase.from('loan_installments').update({ status: 'Pago' }).eq('id', instId);
+          showNotification('Parcela liquidada com sucesso!');
+        } else {
+          showNotification('Erro ao processar pagamento: ' + payErr.message, 'error');
+        }
+      } else {
+        showNotification('Saldo insuficiente mesmo após tentar liquidar ativos.', 'error');
+      }
+      
+      // Update data for both admin and current user context
+      fetchUserData(user.id);
+    } catch (err) {
+      console.error('Liquidation error:', err);
+      showNotification('Erro interno na liquidação.', 'error');
+    }
+  };
+
   const handlePayInstallment = async (instId) => {
     if (!window.confirm('Deseja liquidar esta parcela usando seu saldo disponível?')) return;
     
@@ -1208,21 +1288,6 @@ const App = () => {
     }
   };
 
-  const [installments, setInstallments] = useState([]);
-  // Fetch installments when activeTab is girafa_bank
-  useEffect(() => {
-    if (activeTab === 'girafa_bank' && user) {
-      const fetchInvs = async () => {
-        const { data } = await supabase
-          .from('loan_installments')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('due_date', { ascending: true });
-        setInstallments(data || []);
-      };
-      fetchInvs();
-    }
-  }, [activeTab, user]);
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-black">
@@ -1266,8 +1331,8 @@ const App = () => {
 
   return (
     <div className="min-h-screen">
-      <div className="fixed top-0 left-0 w-full bg-amber-500 text-black text-[10px] font-black uppercase text-center py-1 z-[999] tracking-widest animate-pulse border-b border-black">
-         🦒 AVISO: V1.5.0 - RELATÓRIOS ATIVOS - SE VOCÊ VÊ ISSO, ESTÁ ATUALIZADO
+      <div className="fixed top-0 left-0 w-full bg-red-600 text-white text-[10px] font-black uppercase text-center py-1 z-[999] tracking-widest animate-pulse border-b border-black">
+         🦒 AVISO: V1.5.2 - BOTÃO LIQUIDAR ADICIONADO - VERIFIQUE ABAIXO
       </div>
       {/* Sidebar */}
       <nav className="sidebar mt-6">
@@ -1813,6 +1878,100 @@ const App = () => {
                                       <td className="py-4">{loan.installments}x de R$ {Number(loan.monthly_payment).toFixed(2)}</td>
                                       <td className="py-4">
                                         <span className="px-2 py-1 bg-green-500/10 text-green-500 rounded-full text-[10px] font-bold uppercase">{loan.status}</span>
+                                      </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                        </table>
+                      </div>
+                  </div>
+                </div>
+
+                {/* Admin: Global Installments Monitor (Carnês) */}
+                <div className="mt-12 space-y-6">
+                  <div className="glass-card p-8 border-blue-500/20">
+                      <div className="flex justify-between items-center mb-6">
+                        <h4 className="outfit text-xl text-blue-400 flex items-center gap-2">
+                          <Calendar size={20}/> Monitoramento de Parcelas (Carnê Global)
+                        </h4>
+                        <span className="bg-blue-500/10 text-blue-400 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border border-blue-500/20">
+                          Total: {adminData.allInstallments.length} parcelas
+                        </span>
+                      </div>
+                      
+                      <div className="max-h-[600px] overflow-y-auto overflow-x-auto custom-scrollbar pr-2">
+                        <table className="w-full text-left text-sm border-separate border-spacing-y-2">
+                            <thead>
+                              <tr className="text-muted uppercase text-[10px] tracking-widest sticky top-0 bg-zinc-950/90 backdrop-blur-xl z-20">
+                                  <th className="py-4 px-4 font-black">Cliente</th>
+                                  <th className="py-4 px-4 font-black">Parcela</th>
+                                  <th className="py-4 px-4 font-black">Valor</th>
+                                  <th className="py-4 px-4 font-black">Vencimento</th>
+                                  <th className="py-4 px-4 font-black text-right">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody className="before:block before:h-4">
+                              {adminData.allInstallments.length === 0 && (
+                                <tr>
+                                  <td colSpan="5" className="py-20 text-center text-muted opacity-50 italic">
+                                    Nenhum carnê gerado no sistema até o momento.
+                                  </td>
+                                </tr>
+                              )}
+                              {adminData.allInstallments.map(inst => {
+                                const u = adminData.profiles.find(p => p.id === inst.user_id);
+                                const isOverdue = new Date(inst.due_date) < new Date() && inst.status !== 'Pago';
+                                return (
+                                  <tr key={inst.id} className="group hover:bg-white/[0.03] transition-colors rounded-xl overflow-hidden">
+                                      <td className="py-4 px-4 bg-white/5 rounded-l-xl border-y border-l border-white/5">
+                                        <div className="flex items-center gap-3">
+                                          <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center text-[10px] font-bold text-blue-400">
+                                            {u?.full_name?.charAt(0) || '?'}
+                                          </div>
+                                          <div>
+                                            <p className="font-bold text-white group-hover:text-blue-400 transition-colors">{u?.full_name || 'Desconhecido'}</p>
+                                            <p className="text-[10px] text-muted opacity-50">{u?.email || 'Sem e-mail'}</p>
+                                          </div>
+                                        </div>
+                                      </td>
+                                      <td className="py-4 px-4 bg-white/5 border-y border-white/5">
+                                        <span className="text-[10px] font-black text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-md">
+                                          PARCELA {inst.installment_number}
+                                        </span>
+                                      </td>
+                                      <td className="py-4 px-4 bg-white/5 border-y border-white/5 font-mono text-white font-bold">
+                                        R$ {Number(inst.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                      </td>
+                                      <td className="py-4 px-4 bg-white/5 border-y border-white/5">
+                                        <div className="flex items-center gap-2 text-muted text-xs">
+                                          <Clock size={12} className={isOverdue ? "text-red-500" : "text-muted"} />
+                                          <span className={isOverdue ? "text-red-400 font-bold" : ""}>
+                                            {new Date(inst.due_date).toLocaleDateString()}
+                                          </span>
+                                        </div>
+                                      </td>
+                                      <td className="py-4 px-4 bg-white/5 rounded-r-xl border-y border-r border-white/5 text-right">
+                                        <div className="flex items-center justify-end gap-3">
+                                          <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter ${
+                                            inst.status === 'Pago' 
+                                              ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                                              : (isOverdue 
+                                                  ? 'bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse' 
+                                                  : 'bg-amber-500/20 text-amber-400 border border-amber-500/30')
+                                          }`}>
+                                            {inst.status === 'Pago' ? 'Liquidada' : (isOverdue ? 'Em Atraso' : 'Aguardando')}
+                                          </span>
+                                          
+                                          {inst.status !== 'Pago' && (
+                                            <button 
+                                              onClick={() => handleAdminLiquidateInstallment(inst.id, inst.user_id, Number(inst.amount))}
+                                              className="bg-amber-500 text-black text-[10px] font-black px-4 py-2 rounded-xl hover:scale-105 transition-all uppercase shadow-[0_4px_15px_rgba(251,191,36,0.3)] cursor-pointer border-none"
+                                            >
+                                              LIQUIDAR AGORA
+                                            </button>
+                                          )}
+                                        </div>
                                       </td>
                                   </tr>
                                 );
