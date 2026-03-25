@@ -1332,7 +1332,7 @@ const App = () => {
   return (
     <div className="min-h-screen">
       <div className="fixed top-0 left-0 w-full bg-red-600 text-white text-[10px] font-black uppercase text-center py-1 z-[999] tracking-widest animate-pulse border-b border-black">
-         🦒 AVISO: V1.5.2 - BOTÃO LIQUIDAR ADICIONADO - VERIFIQUE ABAIXO
+         🦒 AVISO: V1.5.3 - BUILD FIX - LIQUIDAR ATIVO
       </div>
       {/* Sidebar */}
       <nav className="sidebar mt-6">
