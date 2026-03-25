@@ -1091,6 +1091,28 @@ const App = () => {
       showNotification('Erro interno.', 'error');
     }
   };
+
+  const handlePayInstallment = async (instId) => {
+    if (!window.confirm('Deseja liquidar esta parcela usando seu saldo disponível?')) return;
+    
+    try {
+      const { data, error } = await supabase.rpc('pay_loan_installment', {
+         installment_id_param: instId
+      });
+      
+      if (error) throw error;
+      
+      if (data?.success) {
+         showNotification(data.message, 'success');
+         fetchUserData(user.id);
+      } else {
+         showNotification(data?.message || 'Erro ao processar pagamento.', 'error');
+      }
+    } catch (err) {
+      console.error('Pay installment error:', err);
+      showNotification('Falha na comunicação com o banco.', 'error');
+    }
+  };
   
   const handleConferTransaction = async (tId) => {
     try {
@@ -1425,6 +1447,15 @@ const App = () => {
                              </div>
                              <p className="text-xl font-bold mb-1">R$ {Number(inst.amount).toFixed(2)}</p>
                              <p className="text-[10px] text-muted flex items-center gap-1"><Calendar size={10}/> Vence em: {new Date(inst.due_date).toLocaleDateString()}</p>
+                             
+                             {inst.status !== 'Pago' && (
+                               <button 
+                                 onClick={() => handlePayInstallment(inst.id)} 
+                                 className="mt-4 w-full bg-blue-600/20 text-blue-400 border border-blue-500/30 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-blue-600 hover:text-white cursor-pointer transition-all"
+                               >
+                                 Pagar com Saldo
+                               </button>
+                             )}
                           </div>
                         ))}
                      </div>
