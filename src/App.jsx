@@ -21,6 +21,10 @@ import {
   Trash2,
   Pencil,
   LogOut,
+  File,
+  Eye,
+  Check,
+  XCircle,
   Mail,
   Phone,
   Lock,
@@ -496,7 +500,8 @@ const App = () => {
   const [myInvestments, setMyInvestments] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [loans, setLoans] = useState([]);
-  const [adminData, setAdminData] = useState({ profiles: [], loans: [], allInvestments: [], allTransactions: [], allInstallments: [] });
+  const [adminData, setAdminData] = useState({ profiles: [], loans: [], allInvestments: [], allTransactions: [], allInstallments: [], allDocuments: [] });
+  const [userDocuments, setUserDocuments] = useState([]);
   const [referralLink, setReferralLink] = useState('');
   
   // Modal & Form States
@@ -570,6 +575,7 @@ const App = () => {
         setIsAdmin(false);
         setAvailableInvestments([]);
         setMyInvestments([]);
+        setUserDocuments([]);
         setLoading(false);
         return;
       }
@@ -600,6 +606,70 @@ const App = () => {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const handleAdminLiquidateInstallment = async (instId, userId, instAmount) => {
+    try {
+      // 1. Get current balance from profile directly (fresher than adminData)
+      let { data: prof, error: profErr } = await supabase.from('profiles').select('balance').eq('id', userId).single();
+      if (profErr) throw new Error('Erro ao buscar saldo: ' + profErr.message);
+      
+      let currentBalance = Number(prof.balance || 0);
+
+      // 2. If balance < installment amount, liquidate investments
+      if (currentBalance < instAmount) {
+        // Find user's active investments
+        const { data: userInvs } = await supabase.from('user_investments').select('*').eq('user_id', userId);
+        
+        if (userInvs && userInvs.length > 0) {
+          for (const inv of userInvs) {
+            if (currentBalance >= instAmount) break;
+            
+            const progress = calculateProgress(inv.invested_at, inv.validity);
+            const accrued = calculateAccruedEarnings(inv);
+            const principal = Number(inv.invested_amount);
+            const valToLiq = principal + accrued;
+            
+            // Liquidate via RPC
+            const { data: nBal, error: liqErr } = await supabase.rpc('handle_balance_change', {
+              user_id_param: userId,
+              amount_param: valToLiq,
+              type_param: 'Lucro',
+              desc_param: `Liquidação Forçada p/ Quitação (#${inv.active_id.slice(0,8)})`
+            });
+            
+            if (!liqErr) {
+              currentBalance = Number(nBal);
+              await supabase.from('user_investments').delete().eq('active_id', inv.active_id);
+            }
+          }
+        }
+      }
+
+      // 3. Try to pay the installment
+      if (currentBalance >= instAmount) {
+        const { data: finalBal, error: payErr } = await supabase.rpc('handle_balance_change', {
+          user_id_param: userId,
+          amount_param: -instAmount,
+          type_param: 'Pagamento',
+          desc_param: `Quitação Admin Carnê #${String(instId).slice(0,8)}`
+        });
+        
+        if (!payErr) {
+          await supabase.from('loan_installments').update({ status: 'Pago', paid_at: new Date().toISOString() }).eq('id', instId);
+          showNotification('Parcela liquidada com sucesso!');
+        } else {
+          showNotification(`Erro no pagamento: ${payErr.message}`, 'error');
+        }
+      } else {
+        showNotification(`Saldo insuficiente (R$ ${currentBalance}) mesmo após tentativas.`, 'error');
+      }
+      
+      fetchUserData(user.id);
+    } catch (err) {
+      console.error('Liquidation error:', err);
+      showNotification(err.message || 'Erro interno na liquidação.', 'error');
+    }
+  };
 
   const fetchUserData = async (userId, currentUser) => {
     setLoading(true);
@@ -670,30 +740,32 @@ const App = () => {
         .order('due_date', { ascending: true });
       setInstallments(instData || []);
 
+      // Fetch User Documents
+      const { data: userDocs } = await supabase.from('user_documents').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+      setUserDocuments(userDocs || []);
 
-      // Fetch Admin Data
+      // Fetch Global Admin Data
       const adminEmails = ['admin@girafatech.com', 'abel@girafatech.com', 'abel.souza.magalhaes@hotmail.com', 'asmagsasp@gmail.com'];
       const userToVerify = currentUser || user;
       const userMailStr = userToVerify?.email?.toLowerCase() || '';
-      console.log('Verificando Acesso Admin para:', userMailStr);
-      if (adminEmails.includes(userMailStr)) {
-         console.log('Buscando dados globais para administrador...');
-         const { data: allP, error: pErr } = await supabase.from('profiles').select('*');
-         if (pErr) console.error('Erro RLS Perfis:', pErr);
-         else console.log('Perfis encontrados:', allP?.length || 0);
-         const { data: allL } = await supabase.from('loans').select('*').order('created_at', { ascending: false });
-         const { data: allI } = await supabase.from('user_investments').select('*').order('invested_at', { ascending: false });
-         const { data: allT } = await supabase.from('transactions').select('*').order('created_at', { ascending: false });
-         const { data: allB } = await supabase.from('budgets').select('*').order('created_at', { ascending: false });
-         const { data: allIns } = await supabase.from('loan_installments').select('*').order('due_date', { ascending: false });
-         setAdminData({ 
-           profiles: allP || [], 
-           loans: allL || [], 
-           allInvestments: allI || [],
-           allTransactions: allT || [],
-           budgets: allB || [],
-           allInstallments: allIns || []
-         });
+      const isUserAdmin = adminEmails.includes(userMailStr);
+
+      if (isUserAdmin) {
+        const { data: allP } = await supabase.from('profiles').select('*');
+        const { data: allL } = await supabase.from('loans').select('*').order('created_at', { ascending: false });
+        const { data: allI } = await supabase.from('investment_options').select('*');
+        const { data: allT } = await supabase.from('transactions').select('*').order('created_at', { ascending: false });
+        const { data: allInst } = await supabase.from('loan_installments').select('*').order('due_date', { ascending: true });
+        const { data: allD } = await supabase.from('user_documents').select('*').order('created_at', { ascending: false });
+        
+        setAdminData({ 
+          profiles: allP || [], 
+          loans: allL || [], 
+          allInvestments: allI || [], 
+          allTransactions: allT || [],
+          allInstallments: allInst || [],
+          allDocuments: allD || []
+        });
       }
 
     } catch (err) {
@@ -730,6 +802,71 @@ const App = () => {
       setProfile({ ...profile, ...updates });
       showNotification('Perfil atualizado com sucesso!');
       setModalType(null);
+    }
+  };
+
+  const handleUploadDocument = async (docType, file) => {
+    if (!docType || !file) return;
+
+    // Check file type
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
+    if (!allowedTypes.includes(file.type)) {
+      showNotification('Tipo de arquivo não suportado. Use PDF, JPEG ou PNG.', 'error');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/${docType}_${Date.now()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('user-documents')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('user-documents')
+        .getPublicUrl(filePath);
+
+      // Insert or Update the document record
+      const { error: dbError } = await supabase
+        .from('user_documents')
+        .insert([{
+          user_id: user.id,
+          doc_type: docType,
+          file_url: publicUrl,
+          status: 'Pendente'
+        }]);
+
+      if (dbError) throw dbError;
+
+      showNotification('Documento enviado com sucesso! Aguarde a verificação.');
+      fetchUserData(user.id);
+    } catch (err) {
+      console.error('Upload Error:', err);
+      showNotification('Erro ao enviar documento.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDocumentAction = async (docId, status, reason = '') => {
+    try {
+      const { error } = await supabase
+        .from('user_documents')
+        .update({ status, rejection_reason: reason, updated_at: new Date().toISOString() })
+        .eq('id', docId);
+
+      if (error) throw error;
+      showNotification(`Documento ${status === 'Aprovado' ? 'aprovado' : 'rejeitado'}!`);
+      // Update global admin data
+      fetchUserData(user.id);
+    } catch (err) {
+      console.error('Doc Action Error:', err);
+      showNotification('Erro ao atualizar documento.', 'error');
     }
   };
 
@@ -1104,73 +1241,6 @@ const App = () => {
     }
   };
 
-  const handleAdminLiquidateInstallment = async (instId, userId, instAmount) => {
-    if (!window.confirm(`Confirmar liquidação forçada da parcela de R$ ${instAmount.toFixed(2)}? Se necessário, investimentos ativos serão liquidados primeiro para cobrir o débito.`)) return;
-    
-    try {
-      // 1. Get current balance
-      const targetProfile = adminData.profiles.find(p => p.id === userId);
-      let currentBalance = Number(targetProfile?.balance || 0);
-
-      // 2. If balance < installment amount, liquidate investments
-      if (currentBalance < instAmount) {
-        // Find user's active investments
-        const { data: userInvs } = await supabase.from('user_investments').select('*').eq('user_id', userId);
-        
-        if (userInvs && userInvs.length > 0) {
-          for (const inv of userInvs) {
-            if (currentBalance >= instAmount) break;
-            
-            const progress = Number(calculateProgress(inv.invested_at, inv.validity));
-            const isEndReached = progress >= 100;
-            const accrued = calculateAccruedEarnings(inv);
-            const principal = Number(inv.invested_amount);
-            
-            // Value to liquidate (Principal + Accrued)
-            const valToLiq = principal + accrued;
-            
-            // Liquidate via RPC
-            const { data: nBal, error: liqErr } = await supabase.rpc('handle_balance_change', {
-              user_id_param: userId,
-              amount_param: valToLiq,
-              type_param: 'Lucro',
-              desc_param: `Liquidação Forçada p/ Crédito #${inv.active_id.slice(0,8)}`
-            });
-            
-            if (!liqErr) {
-              currentBalance = Number(nBal);
-              await supabase.from('user_investments').delete().eq('active_id', inv.active_id);
-            }
-          }
-        }
-      }
-
-      // 3. Try to pay the installment
-      if (currentBalance >= instAmount) {
-        const { data: finalBal, error: payErr } = await supabase.rpc('handle_balance_change', {
-          user_id_param: userId,
-          amount_param: -instAmount,
-          type_param: 'Pagamento',
-          desc_param: `Quitação de Carnê #${instId.slice(0,8)}`
-        });
-        
-        if (!payErr) {
-          await supabase.from('loan_installments').update({ status: 'Pago' }).eq('id', instId);
-          showNotification('Parcela liquidada com sucesso!');
-        } else {
-          showNotification('Erro ao processar pagamento: ' + payErr.message, 'error');
-        }
-      } else {
-        showNotification('Saldo insuficiente mesmo após tentar liquidar ativos.', 'error');
-      }
-      
-      // Update data for both admin and current user context
-      fetchUserData(user.id);
-    } catch (err) {
-      console.error('Liquidation error:', err);
-      showNotification('Erro interno na liquidação.', 'error');
-    }
-  };
 
   const handlePayInstallment = async (instId) => {
     if (!window.confirm('Deseja liquidar esta parcela usando seu saldo disponível?')) return;
@@ -1332,7 +1402,7 @@ const App = () => {
   return (
     <div className="min-h-screen">
       <div className="fixed top-0 left-0 w-full bg-red-600 text-white text-[10px] font-black uppercase text-center py-1 z-[999] tracking-widest animate-pulse border-b border-black">
-         🦒 AVISO: V1.5.3 - BUILD FIX - LIQUIDAR ATIVO
+         🦒 GIRAFA TECH - SISTEMA OFICIAL [V2.0.2] - FINAL BUILD
       </div>
       {/* Sidebar */}
       <nav className="sidebar mt-6">
@@ -1340,7 +1410,7 @@ const App = () => {
           <img src="/logo.png" alt="Girafa Tech" className="w-12 h-12 rounded-xl object-contain border border-amber-500/30" />
           <div>
             <h1 className="text-xl font-bold gradient-text outfit leading-tight">GIRAFA TECH</h1>
-            <span className="text-[10px] text-amber-500 font-bold tracking-widest uppercase opacity-50">v1.5.0-REPORTS</span>
+            <span className="text-[10px] text-amber-500 font-bold tracking-widest uppercase opacity-50">v1.5.4-HOTFIX</span>
           </div>
         </div>
 
@@ -1398,6 +1468,10 @@ const App = () => {
           <button onClick={() => { setActiveTab('my_investments'); setShowLanding(false); }} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'my_investments' ? 'active' : ''}`}>
             <Wallet size={20} /> Meus Investimentos
           </button>
+
+          <button onClick={() => { setActiveTab('documentacao'); setShowLanding(false); }} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'documentacao' ? 'active' : ''}`}>
+            <File size={20} /> Documentacao
+          </button>
         </div>
 
         <div className="space-y-2">
@@ -1410,7 +1484,7 @@ const App = () => {
         </div>
         
         <div className="mt-4 pt-4 border-t border-white/5 text-[8px] text-muted/20 font-mono text-center uppercase tracking-widest">
-           v1.5.0-REPORTS
+           v2.0.2-FINAL-BUILD
         </div>
       </nav>
 
@@ -1661,6 +1735,180 @@ const App = () => {
                           <p className="text-[10px] text-muted text-right">Progresso: {progress}%</p>
                         </div>
                         <button onClick={() => { setSelectedInvestment(inv); setModalType('sacar'); }} className="btn-outline w-full hover:bg-amber-500 hover:text-black">Sacar agora</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {activeTab === 'documentacao' && (
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-8">
+              <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div>
+                  <h3 className="outfit text-3xl font-bold mb-2">Central de Verificação e KYC</h3>
+                  <p className="text-muted text-sm max-w-xl">Mantenha seus documentos atualizados para garantir a segurança da sua conta e agilizar seus saques.</p>
+                </div>
+                {isAdmin && (
+                  <div className="flex gap-2 bg-amber-500/10 p-1 rounded-xl border border-amber-500/20">
+                    <span className="flex items-center gap-2 px-4 py-2 text-amber-400 font-bold text-xs uppercase tracking-widest">
+                      <Shield size={16} /> Modo Administrador
+                    </span>
+                  </div>
+                )}
+              </header>
+
+              {isAdmin ? (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="glass-card p-6 border-amber-500/20">
+                      <p className="text-[10px] text-muted uppercase font-bold mb-1 tracking-widest text-amber-400">Pendentes</p>
+                      <p className="text-3xl font-bold">{adminData.allDocuments.filter(d => d.status === 'Pendente').length}</p>
+                    </div>
+                    <div className="glass-card p-6 border-green-500/10">
+                      <p className="text-[10px] text-muted uppercase font-bold mb-1 tracking-widest text-green-400">Aprovados</p>
+                      <p className="text-3xl font-bold">{adminData.allDocuments.filter(d => d.status === 'Aprovado').length}</p>
+                    </div>
+                    <div className="glass-card p-6 border-red-500/10">
+                      <p className="text-[10px] text-muted uppercase font-bold mb-1 tracking-widest text-red-500">Rejeitados</p>
+                      <p className="text-3xl font-bold">{adminData.allDocuments.filter(d => d.status === 'Rejeitado').length}</p>
+                    </div>
+                  </div>
+
+                  <div className="glass-card overflow-hidden">
+                    <table className="w-full text-left border-separate border-spacing-0">
+                      <thead className="bg-white/[0.03] text-muted uppercase text-[10px] font-bold tracking-widest">
+                        <tr>
+                          <th className="py-4 px-6 border-b border-white/5">Data</th>
+                          <th className="py-4 px-6 border-b border-white/5">Cliente</th>
+                          <th className="py-4 px-6 border-b border-white/5">Tipo</th>
+                          <th className="py-4 px-6 border-b border-white/5">Status</th>
+                          <th className="py-4 px-6 border-b border-white/5 text-right">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {adminData.allDocuments.length === 0 ? (
+                          <tr><td colSpan="5" className="py-20 text-center text-muted italic">Nenhum documento encontrado.</td></tr>
+                        ) : (
+                          adminData.allDocuments.map(doc => {
+                            const u = adminData.profiles.find(p => p.id === doc.user_id);
+                            return (
+                              <tr key={doc.id} className="group hover:bg-white/[0.02] transition-colors">
+                                <td className="py-4 px-6">{new Date(doc.created_at).toLocaleDateString()}</td>
+                                <td className="py-4 px-6">
+                                  <div className="font-bold text-white">{u?.full_name || 'Desconhecido'}</div>
+                                  <div className="text-[10px] text-muted italic opacity-50">{doc.user_id.slice(0,8)}</div>
+                                </td>
+                                <td className="py-4 px-6">
+                                  <span className="bg-white/5 border border-white/10 px-2 py-1 rounded text-[9px] font-black uppercase text-blue-400 italic font-mono">
+                                    {doc.doc_type.replace('_',' ')}
+                                  </span>
+                                </td>
+                                <td className="py-4 px-6">
+                                  <span className={`px-2 py-1 rounded text-[9px] font-black uppercase border ${
+                                    doc.status === 'Aprovado' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
+                                    doc.status === 'Rejeitado' ? 'bg-red-500/20 text-red-400 border-red-500/30' :
+                                    'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                                  }`}>
+                                    {doc.status}
+                                  </span>
+                                </td>
+                                <td className="py-4 px-6 text-right space-x-2">
+                                  <a href={doc.file_url} target="_blank" rel="noreferrer" className="bg-blue-500/10 text-blue-400 p-2 rounded-lg hover:bg-blue-500 hover:text-white transition-all inline-block">
+                                    <Eye size={16} />
+                                  </a>
+                                  {doc.status === 'Pendente' && (
+                                    <>
+                                      <button onClick={() => handleDocumentAction(doc.id, 'Aprovado')} className="bg-green-500/10 text-green-400 p-2 rounded-lg hover:bg-green-500 hover:text-white transition-all border-none cursor-pointer">
+                                        <CheckCircle2 size={16} />
+                                      </button>
+                                      <button onClick={() => {
+                                        const reason = window.prompt("Motivo da rejeição:");
+                                        if (reason) handleDocumentAction(doc.id, 'Rejeitado', reason);
+                                      }} className="bg-red-500/10 text-red-400 p-2 rounded-lg hover:bg-red-500 hover:text-white transition-all border-none cursor-pointer">
+                                        <X size={16} />
+                                      </button>
+                                    </>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {[
+                    { key: 'RG_FRENTE', label: 'RG / CNH (Frente)', desc: 'Foto nítida da parte frontal do seu documento de identidade.' },
+                    { key: 'RG_VERSO', label: 'RG (Verso)', desc: 'Foto nítida da parte traseira do seu RG (ou verso da CNH se separado).' },
+                    { key: 'SELFIE', label: 'Selfie com Documento', desc: 'Uma foto sua segurando o documento ao lado do rosto.' },
+                    { key: 'COMPROVANTE_ENDERECO', label: 'Comprovante de Endereço', desc: 'Conta de luz, água ou banco com no máximo 90 dias.' },
+                  ].map(type => {
+                    const doc = userDocuments.find(d => d.doc_type === type.key);
+                    return (
+                      <div key={type.key} className={`glass-card p-6 flex flex-col justify-between border-dashed border-2 ${
+                        doc?.status === 'Aprovado' ? 'border-green-500/30 bg-green-500/[0.02]' :
+                        doc?.status === 'Rejeitado' ? 'border-red-500/30 bg-red-500/[0.02]' :
+                        'border-white/10'
+                      }`}>
+                        <div>
+                          <div className="flex justify-between items-start mb-4">
+                            <div className={`p-3 rounded-xl ${
+                              doc?.status === 'Aprovado' ? 'bg-green-500/20 text-green-400' :
+                              doc?.status === 'Rejeitado' ? 'bg-red-500/20 text-red-400' :
+                              'bg-white/5 text-muted'
+                            }`}>
+                              <File size={24} />
+                            </div>
+                            {doc && (
+                              <span className={`text-[9px] font-black uppercase px-2 py-1 rounded border ${
+                                doc.status === 'Aprovado' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
+                                doc.status === 'Rejeitado' ? 'bg-red-500/20 text-red-400 border-red-500/30' :
+                                'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                              }`}>
+                                {doc.status}
+                              </span>
+                            )}
+                          </div>
+                          <h4 className="font-bold text-lg mb-2">{type.label}</h4>
+                          <p className="text-xs text-muted leading-relaxed mb-6">{type.desc}</p>
+                          {doc?.status === 'Rejeitado' && (
+                            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 mb-6">
+                              <p className="text-[10px] text-red-400 font-bold uppercase mb-1">Motivo da Rejeição:</p>
+                              <p className="text-xs italic text-white/80">{doc.rejection_reason}</p>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="mt-auto pt-4 border-t border-white/5">
+                          {doc?.status === 'Aprovado' ? (
+                            <div className="flex items-center gap-2 text-green-400 font-bold text-xs uppercase bg-green-500/10 p-4 rounded-xl justify-center border border-green-500/20 shadow-[0_0_20px_rgba(16,185,129,0.1)]">
+                              <CheckCircle2 size={16} /> Verificado
+                            </div>
+                          ) : (
+                            <div className="relative group/btn w-full overflow-hidden rounded-xl">
+                              <input 
+                                type="file" 
+                                accept="image/*,application/pdf"
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+                                onChange={(e) => handleUploadDocument(type.key, e.target.files[0])}
+                              />
+                              <button className={`w-full font-black text-[10px] uppercase py-4 px-2 rounded-xl flex items-center justify-center gap-2 transition-all relative z-10 ${
+                                doc?.status === 'Pendente' ? 'bg-amber-500/20 text-amber-500 pointer-events-none' : 'bg-primary text-black hover:scale-[1.02] shadow-[0_4px_15px_rgba(251,191,36,0.2)]'
+                              }`}>
+                                {doc?.status === 'Pendente' ? (
+                                  <> <Clock size={16} className="animate-pulse" /> Em Análise... </>
+                                ) : (
+                                  <> <ArrowUpRight size={16} /> {doc?.status === 'Rejeitado' ? 'REENVIAR AGORA' : 'ESCOLHER ARQUIVO'} </>
+                                )}
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
@@ -1965,8 +2213,13 @@ const App = () => {
                                           
                                           {inst.status !== 'Pago' && (
                                             <button 
-                                              onClick={() => handleAdminLiquidateInstallment(inst.id, inst.user_id, Number(inst.amount))}
-                                              className="bg-amber-500 text-black text-[10px] font-black px-4 py-2 rounded-xl hover:scale-105 transition-all uppercase shadow-[0_4px_15px_rgba(251,191,36,0.3)] cursor-pointer border-none"
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                handleAdminLiquidateInstallment(inst.id, inst.user_id, Number(inst.amount));
+                                              }}
+                                              className="bg-amber-500 text-black text-[10px] font-black px-4 py-3 rounded-xl hover:scale-105 transition-all uppercase shadow-[0_4px_15px_rgba(251,191,36,0.3)] cursor-pointer border-none"
                                             >
                                               LIQUIDAR AGORA
                                             </button>
@@ -2631,7 +2884,7 @@ const AuthView = ({ onNotify }) => {
 
         {/* Debug Info para o Abel verificar a Chave */}
         <div className="mt-10 pt-4 border-t border-white/5 text-[8px] text-muted/30 font-mono text-center uppercase tracking-widest">
-           v1.5.0-REPORTS
+           v1.5.4-HOTFIX
         </div>
       </motion.div>
     </div>
