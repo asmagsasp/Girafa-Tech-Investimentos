@@ -123,21 +123,60 @@ const LandingPage = ({ onGetStarted, user }) => {
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
             <h1 className="outfit text-6xl md:text-9xl font-black mb-6 tracking-tighter leading-none uppercase">
                Girafa <span className="text-amber-500">Tech</span> <br/>
-               <span className="text-muted-foreground opacity-50">Ecossistema</span>
+               <span className="text-muted-foreground opacity-50 text-6xl">Investimentos</span>
             </h1>
             <p className="text-lg md:text-2xl text-muted max-w-3xl mx-auto mb-12 leading-relaxed font-light opacity-80">
-              Desenvolvemos hardware, software e automações de alto impacto. <br/>
-              A Girafa Tech é o hub de inovação do futuro, hoje.
+              Gestão inteligente de capital e rendimentos em nuvem. <br/>
+              A Girafa Tech é a sua nova conta de investimentos exponenciais.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-6 justify-center">
-              <button onClick={onGetStarted} className="primary-btn px-12 py-5 text-lg font-bold shadow-[0_0_30px_rgba(251,191,36,0.35)]">
-                 Acessar Minha Conta
+              <button onClick={onGetStarted} className="primary-btn px-12 py-5 text-xl font-black shadow-[0_0_40px_rgba(251,191,36,0.4)] uppercase tracking-tighter">
+                 Abrir Minha Conta
               </button>
-              <a href="#portfolio" className="btn-outline px-12 py-5 text-lg font-bold border-white/10 hover:bg-white/5 backdrop-blur-md">
-                 Nossos Projetos
-              </a>
+              <button onClick={onGetStarted} className="btn-outline px-12 py-5 text-lg font-bold border-white/20 hover:bg-white/5 backdrop-blur-md opacity-70 hover:opacity-100">
+                 Já sou cliente (Login)
+              </button>
             </div>
+
+             {/* Stats Bar */}
+             <section className="relative z-10 py-12 mb-12 border-y border-white/5 bg-white/[0.01] backdrop-blur-3xl">
+                <div className="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-12 text-center">
+                   {[
+                     { val: '1.2k+', label: 'Clientes Ativos' },
+                     { val: 'R$ 2M+', label: 'Volume Transacionado' },
+                     { val: 'R$ 680k+', label: 'Rendimentos Pagos' },
+                     { val: '24h', label: 'Liquidez Garantida' }
+                   ].map((s, i) => (
+                     <div key={i} className="space-y-1">
+                        <h4 className="text-3xl font-black outfit text-amber-500">{s.val}</h4>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-bold opacity-60">{s.label}</p>
+                     </div>
+                   ))}
+                </div>
+             </section>
+
+             {/* Prominent Business Info Board */}
+             <motion.div 
+                initial={{ opacity: 0, y: 40 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                className="max-w-3xl mx-auto"
+             >
+                <div className="ornamental-frame text-center shadow-[0_0_100px_rgba(251,191,36,0.1)]">
+                   <h3 className="handwritten text-3xl md:text-5xl text-amber-500 mb-8 border-b border-amber-500/20 pb-4 inline-block">Principais Diretrizes Girafa Tech</h3>
+                   
+                   <div className="handwritten space-y-6 text-xl md:text-3xl text-white/90 leading-relaxed italic">
+                      <p>📅 Inauguração Oficial: <span className="text-amber-400 font-bold">12/04/2026</span></p>
+                      <p>💸 Taxa de Saque Operacional: <span className="text-amber-400 font-bold">5%</span></p>
+                      <p>⏰ Horários: Seg-Sex 06h às 23:59h</p>
+                      <p>💰 Aporte Mínimo: R$ 10,00</p>
+                      <p>🔑 Chave Pix: Necessário Envio de Documentação</p>
+                      <p>🦒 Girafa Bank: Empréstimos com Juros Atrativos</p>
+                      <p>🏦 Gateway de Pagamento: Recarga Pay</p>
+                   </div>
+                </div>
+             </motion.div>
           </motion.div>
         </div>
 
@@ -146,110 +185,6 @@ const LandingPage = ({ onGetStarted, user }) => {
         </motion.div>
       </section>
 
-      {/* Stats Bar */}
-      <section className="relative z-10 py-12 border-y border-white/5 bg-white/[0.01] backdrop-blur-3xl">
-         <div className="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-12 text-center">
-            {[
-              { val: '20+', label: 'Projetos de Software' },
-              { val: 'R$ 2M+', label: 'Volume Transacionado' },
-              { val: '10k+', label: 'Linhas de Código' },
-              { val: '24h', label: 'Monitoramento Ativo' }
-            ].map((s, i) => (
-              <div key={i} className="space-y-1">
-                 <h4 className="text-3xl font-black outfit text-amber-500">{s.val}</h4>
-                 <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-bold opacity-60">{s.label}</p>
-              </div>
-            ))}
-         </div>
-      </section>
-
-      {/* Projects Showcase */}
-      <section id="portfolio" className="relative z-10 py-32 px-6 max-w-7xl mx-auto">
-        <div className="text-center mb-24 space-y-4">
-           <span className="text-amber-500 uppercase tracking-widest text-xs font-black">Nosso Portfólio</span>
-           <h2 className="outfit text-4xl md:text-6xl font-bold">Ecossistema de Inovação</h2>
-           <p className="text-muted max-w-2xl mx-auto opacity-70">Sistemas nativos, automações inteligentes e interfaces que encantam e convertem.</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {SPONSOR_PROJECTS.map((project, idx) => (
-            <motion.div 
-              key={project.id}
-              initial={{ opacity: 0, scale: 0.95 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: idx * 0.05 }}
-              className="group glass-card p-10 hover:border-amber-500/50 transition-all duration-500 cursor-default relative overflow-hidden"
-            >
-              <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-20 transition-opacity">
-                {(() => { const Icon = project.icon; return <Icon size={100} />; })()}
-              </div>
-              <div className="bg-amber-500/10 w-16 h-16 rounded-2xl flex items-center justify-center mb-8 border border-amber-500/20 group-hover:bg-amber-500 group-hover:text-black transition-all">
-                {(() => { const Icon = project.icon; return <Icon size={32} />; })()}
-              </div>
-              <h4 className="outfit text-2xl font-bold mb-4">{project.name}</h4>
-              <p className="text-muted-foreground text-sm leading-relaxed mb-6 opacity-80 group-hover:opacity-100">{project.desc}</p>
-              <div className="flex gap-2">
-                 <span className="bg-white/5 border border-white/10 px-3 py-1 rounded-full text-[8px] font-black uppercase opacity-60">ATIVO</span>
-                 <span className="bg-blue-500/20 border border-blue-500/20 text-blue-400 px-3 py-1 rounded-full text-[8px] font-black uppercase">v2.0</span>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* Budget Form Section */}
-      <section className="relative z-10 py-32 px-6 bg-gradient-to-b from-transparent to-black/80">
-         <div className="max-w-5xl mx-auto">
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-16 items-center">
-               <div className="lg:col-span-2 space-y-8">
-                  <h2 className="outfit text-5xl font-bold leading-tight uppercase tracking-tighter">
-                     Sua Ideia <br/> <span className="text-amber-500 underline decoration-white/10 decoration-8">Nossa Tecnologia</span>
-                  </h2>
-                  <p className="text-muted leading-relaxed opacity-80">
-                     A Girafa Tech aceita contratos para desenvolvimento de softwares sob demanda. <br/><br/>
-                     Seja um aplicativo nativo para iOS/Android, um sistema Web 3.0 de alta escala ou automação de processos, nosso time de engenharia está pronto para o desafio.
-                  </p>
-                  <div className="space-y-4">
-                     <div className="flex items-center gap-4 text-sm opacity-60 hover:opacity-100 transition-opacity"><CheckCircle2 className="text-green-500"/> Consultoria de Produto</div>
-                     <div className="flex items-center gap-4 text-sm opacity-60 hover:opacity-100 transition-opacity"><CheckCircle2 className="text-green-500"/> UI/UX de Alta Fidelidade</div>
-                     <div className="flex items-center gap-4 text-sm opacity-60 hover:opacity-100 transition-opacity"><CheckCircle2 className="text-green-500"/> Suporte e Manutenção Vitalícia</div>
-                  </div>
-               </div>
-
-               <div className="lg:col-span-3">
-                  <motion.div 
-                    initial={{ opacity: 0, x: 50 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    className="glass-card p-10 border-amber-500/20 shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
-                  >
-                     <p className="text-muted uppercase text-[10px] tracking-widest font-black mb-6">Solicitar Orçamento</p>
-                     <form onSubmit={handleBudgetSubmit} className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                           <input type="text" placeholder="Seu Nome" required value={budgetForm.name} onChange={e => setBudgetForm({...budgetForm, name: e.target.value})} className="bg-white/5 border border-white/10 p-4 rounded-xl text-sm" />
-                           <input type="email" placeholder="E-mail" required value={budgetForm.email} onChange={e => setBudgetForm({...budgetForm, email: e.target.value})} className="bg-white/5 border border-white/10 p-4 rounded-xl text-sm" />
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                           <input type="tel" placeholder="WhatsApp (DDD)" required value={budgetForm.whatsapp} onChange={e => setBudgetForm({...budgetForm, whatsapp: e.target.value})} className="bg-white/5 border border-white/10 p-4 rounded-xl text-sm" />
-                           <select value={budgetForm.type} onChange={e => setBudgetForm({...budgetForm, type: e.target.value})} className="bg-white/5 border border-white/10 p-4 rounded-xl text-sm text-white">
-                              <option className="bg-zinc-900" value="App Móvel">Aplicativo Móvel</option>
-                              <option className="bg-zinc-900" value="Web Site">Plataforma Web</option>
-                              <option className="bg-zinc-900" value="Automação">Automação/Bot</option>
-                              <option className="bg-zinc-900" value="Outros">Outros Projetos</option>
-                           </select>
-                        </div>
-                        <textarea placeholder="Fale um pouco sobre o projeto..." rows="4" required value={budgetForm.desc} onChange={e => setBudgetForm({...budgetForm, desc: e.target.value})} className="w-full bg-white/5 border border-white/10 p-4 rounded-xl text-sm outline-none focus:border-amber-500/50" />
-                        
-                        <button type="submit" disabled={submitting} className="primary-btn w-full justify-center py-5 text-lg shadow-[0_10px_30px_rgba(251,191,36,0.3)]">
-                           {submitting ? <Loader2 className="animate-spin" /> : 'Convocar a Girafa Tech'}
-                        </button>
-                        <p className="text-[10px] text-muted text-center opacity-40">Ao enviar, sua solicitação será registrada e analisada pelo Abel.</p>
-                     </form>
-                  </motion.div>
-               </div>
-            </div>
-         </div>
-      </section>
 
       <footer className="relative z-10 py-16 px-6 border-t border-white/5 text-center">
         <p className="text-muted-foreground text-sm font-light opacity-50 tracking-widest uppercase">© 2026 Girafa Tech • Elite Software Development • Girafa Bank Division</p>
@@ -537,7 +472,7 @@ const App = () => {
   }, [myInvestments, calculateAccruedEarnings]);
 
   useEffect(() => {
-    console.log('>>> GIRAFA TECH V1.5.0 LOADED <<<');
+    console.log('>>> GIRAFA TECH V2.1.0-INVEST-ONLY LOADED <<<');
     if (!supabase) {
       setLoading(false);
       return;
@@ -1402,7 +1337,7 @@ const App = () => {
   return (
     <div className="min-h-screen">
       <div className="fixed top-0 left-0 w-full bg-red-600 text-white text-[10px] font-black uppercase text-center py-1 z-[999] tracking-widest animate-pulse border-b border-black">
-         🦒 GIRAFA TECH - SISTEMA OFICIAL [V2.0.2] - FINAL BUILD
+         🦒 GIRAFA TECH - SISTEMA OFICIAL [V2.1.0-INVEST-ONLY]
       </div>
       {/* Sidebar */}
       <nav className="sidebar mt-6">
@@ -1410,14 +1345,11 @@ const App = () => {
           <img src="/logo.png" alt="Girafa Tech" className="w-12 h-12 rounded-xl object-contain border border-amber-500/30" />
           <div>
             <h1 className="text-xl font-bold gradient-text outfit leading-tight">GIRAFA TECH</h1>
-            <span className="text-[10px] text-amber-500 font-bold tracking-widest uppercase opacity-50">v1.5.4-HOTFIX</span>
+            <span className="text-[10px] text-amber-500 font-bold tracking-widest uppercase opacity-50">v2.1.0-INVEST-ONLY</span>
           </div>
         </div>
 
         <div className="flex-1">
-          <button onClick={() => setShowLanding(true)} className={`nav-link w-full border-none cursor-pointer text-left ${showLanding ? 'active' : ''}`}>
-            <Sparkles size={20} /> Ecossistema
-          </button>
 
           <button onClick={() => { setActiveTab('dashboard'); setShowLanding(false); }} className={`nav-link w-full border-none cursor-pointer text-left ${activeTab === 'dashboard' && !showLanding ? 'active' : ''}`}>
             <LayoutDashboard size={20} /> Tela Inicial
@@ -1484,7 +1416,7 @@ const App = () => {
         </div>
         
         <div className="mt-4 pt-4 border-t border-white/5 text-[8px] text-muted/20 font-mono text-center uppercase tracking-widest">
-           v2.0.2-FINAL-BUILD
+           v2.1.0-INVEST-ONLY
         </div>
       </nav>
 
@@ -2626,8 +2558,8 @@ const App = () => {
   );
 };
 
-const AuthView = ({ onNotify }) => {
-  const [isLogin, setIsLogin] = useState(true);
+const AuthView = ({ onNotify, initialMode = false }) => {
+  const [isLogin, setIsLogin] = useState(initialMode);
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -2846,8 +2778,8 @@ const AuthView = ({ onNotify }) => {
             </div>
           )}
 
-          <button type="submit" disabled={loading} className="primary-btn w-full justify-center py-4 text-lg">
-            {loading ? <Loader2 className="animate-spin" /> : (isLogin ? 'Entrar' : 'Criar Conta')}
+          <button type="submit" disabled={loading} className="primary-btn w-full justify-center py-6 text-xl font-black shadow-[0_10px_40px_rgba(251,191,36,0.3)] hover:scale-[1.02] transition-all">
+            {loading ? <Loader2 className="animate-spin" /> : (isLogin ? 'ENTRAR NA CONTA' : 'ABRIR MINHA CONTA AGORA (GRÁTIS)')}
           </button>
         </form>
 
@@ -2884,7 +2816,7 @@ const AuthView = ({ onNotify }) => {
 
         {/* Debug Info para o Abel verificar a Chave */}
         <div className="mt-10 pt-4 border-t border-white/5 text-[8px] text-muted/30 font-mono text-center uppercase tracking-widest">
-           v1.5.4-HOTFIX
+           v2.1.0-INVEST-ONLY
         </div>
       </motion.div>
     </div>
